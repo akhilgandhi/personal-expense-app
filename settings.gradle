@@ -1,0 +1,10 @@
+include ':microservices:account-service'
+include ':microservices:budget-service'
+include ':microservices:dashboard-service'
+include ':microservices:expense-service'
+include ':microservices:goal-service'
+include ':microservices:invest-service'
+include ':microservices:reporting-service'
+include 'api'
+include 'util'
+

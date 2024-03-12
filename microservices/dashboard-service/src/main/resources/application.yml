@@ -1,0 +1,10 @@
+server:
+  port: 8081
+
+app:
+  account-service:
+    host: localhost
+    port: 8082
+  expense-service:
+    host: localhost
+    port: 8083
