@@ -1,0 +1,30 @@
+services:
+
+  account:
+    build: microservices/account-service
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  expense:
+    build: microservices/expense-service
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+
+  dashboard:
+    build: microservices/dashboard-service
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    ports:
+      - "8080:8080"

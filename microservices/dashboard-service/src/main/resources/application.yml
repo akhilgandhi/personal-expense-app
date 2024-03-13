@@ -8,3 +8,20 @@ app:
   expense-service:
     host: localhost
     port: 8083
+
+---
+server:
+  port: 8080
+
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+app:
+  account-service:
+    host: account
+    port: 8080
+  expense-service:
+    host: expense
+    port: 8080

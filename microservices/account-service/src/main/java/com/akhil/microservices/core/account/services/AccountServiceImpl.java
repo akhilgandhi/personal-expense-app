@@ -36,6 +36,6 @@ public class AccountServiceImpl implements AccountService {
             throw new NotFoundException("No account found for accountId: " + accountId);
         }
 
-        return new Account(1, "Account 1", serviceUtil.getServiceAddress());
+        return new Account(accountId, "Account " + accountId, serviceUtil.getServiceAddress());
     }
 }

@@ -5,3 +5,12 @@ logging:
   level:
     root: INFO
     com.akhil.microservices: DEBUG
+
+---
+server:
+  port: 8080
+
+spring:
+  config:
+    activate:
+      on-profile: docker
