@@ -9,6 +9,13 @@ public class DashboardAggregate {
     private final List<ExpenseSummary> expenses;
     private final ServiceAddresses serviceAddresses;
 
+    public DashboardAggregate() {
+        accountId = 0;
+        name = null;
+        expenses = null;
+        serviceAddresses = null;
+    }
+
     public DashboardAggregate(int accountId, String name,
                               List<ExpenseSummary> expenses,
                               ServiceAddresses serviceAddresses) {

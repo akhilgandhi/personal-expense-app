@@ -4,8 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(
         name = "Dashboard",
@@ -42,4 +41,46 @@ public interface DashboardCompositeService  {
             produces = "application/json"
     )
     DashboardAggregate getAccountSummary(@PathVariable int accountId);
+
+    @Operation(
+            summary = "${api.dashboard.create-account-summary.description}",
+            description = "{api.dashboard.create-account-summary.notes}"
+    )
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "${api.responseCodes.badRequest.description}"
+                    ),
+                    @ApiResponse(
+                            responseCode = "422",
+                            description = "${api.responseCodes.unprocessableEntity.description}"
+                    )
+    })
+    @PostMapping(
+            value = "/dashboard",
+            consumes = "application/json"
+    )
+    void createAccount(@RequestBody DashboardAggregate body);
+
+    @Operation(
+            summary = "${api.dashboard.delete-account-summary.description}",
+            description = "${api.dashboard.delete-account-summary.notes}"
+    )
+    @ApiResponses(
+            value = {
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "${api.responseCodes.badRequest.description}"
+                    ),
+                    @ApiResponse(
+                            responseCode = "422",
+                            description = "${api.responseCodes.unprocessableEntity.description}"
+                    )
+            }
+    )
+    @DeleteMapping(
+            value = "/dashboard/{accountId}"
+    )
+    void deleteAccount(@PathVariable int accountId);
 }

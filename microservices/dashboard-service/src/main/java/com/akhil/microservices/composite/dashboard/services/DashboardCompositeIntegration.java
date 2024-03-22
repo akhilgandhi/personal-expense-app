@@ -45,13 +45,13 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
         this.restTemplate = restTemplate;
         this.mapper = mapper;
 
-        this.accountServiceUrl = "http://" + accountServiceHost + ":" + accountServicePort + "/account/";
-        this.expenseServiceUrl = "http://" + expenseServiceHost + ":" + expenseServicePort + "/expense?accountId=";
+        this.accountServiceUrl = "http://" + accountServiceHost + ":" + accountServicePort + "/account";
+        this.expenseServiceUrl = "http://" + expenseServiceHost + ":" + expenseServicePort + "/expense";
     }
 
     public List<Expense> getExpenses(int accountId) {
         try {
-            String url = expenseServiceUrl + accountId;
+            String url = expenseServiceUrl + "?accountId=" + accountId;
 
             LOG.debug("Will call getExpenses API on URL: {}", url);
             List<Expense> expenses = restTemplate.exchange(url, HttpMethod.GET, null,
@@ -67,25 +67,85 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
     }
 
     @Override
+    public Expense createExpense(Expense expense) {
+
+        try {
+            String url = expenseServiceUrl;
+            LOG.debug("Will post a new expense to URL: {}", url);
+
+            Expense newExpense = restTemplate.postForObject(url, expense, Expense.class);
+            LOG.debug("Created a expense with id: {}", newExpense.getAccountId());
+
+            return newExpense;
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    @Override
+    public void deleteExpenses(int accountId) {
+
+        try {
+            String url = expenseServiceUrl + "?accountId=" + accountId;
+            LOG.debug("Will call the deleteExpenses API on URL: {}", url);
+
+            restTemplate.delete(url);
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    @Override
     public Account getAccount(int accountId) {
         try {
-            String url = accountServiceUrl + accountId;
-
+            String url = accountServiceUrl + "/" + accountId;
             LOG.debug("Will call getAccount API on URL: {}", url);
-            Account account = restTemplate.getForObject(url, Account.class);
 
-            LOG.debug("Found and account with id: {}", account.getAccountId());
+            Account account = restTemplate.getForObject(url, Account.class);
+            LOG.debug("Found an account with id: {}", account.getAccountId());
 
             return account;
         } catch (HttpClientErrorException ex) {
-            switch (HttpStatus.resolve(ex.getStatusCode().value())) {
-                case NOT_FOUND -> throw new NotFoundException(getErrorMessage(ex));
-                case UNPROCESSABLE_ENTITY -> throw new InvalidInputException(getErrorMessage(ex));
-                default -> {
-                    LOG.warn("Got an unexpected HTTP error: {}, will rethrow it", ex.getStatusCode());
-                    LOG.warn("Error body: {}", ex.getResponseBodyAsString());
-                    throw ex;
-                }
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    @Override
+    public Account createAccount(Account body) {
+        try {
+            String url = accountServiceUrl;
+            LOG.debug("Will post a new account to URL: {}", url);
+
+            Account account = restTemplate.postForObject(url, body, Account.class);
+            LOG.debug("Created a account with id: {}", account.getAccountId());
+
+            return account;
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    @Override
+    public void deleteAccount(int accountId) {
+
+        try {
+            String url = accountServiceUrl + "/" + accountId;
+            LOG.debug("Will call the deleteAccount API on URL: {}", url);
+
+            restTemplate.delete(url);
+        } catch (HttpClientErrorException ex) {
+            throw handleHttpClientException(ex);
+        }
+    }
+
+    private RuntimeException handleHttpClientException(HttpClientErrorException ex) {
+        switch (HttpStatus.resolve(ex.getStatusCode().value())) {
+            case NOT_FOUND -> throw new NotFoundException(getErrorMessage(ex));
+            case UNPROCESSABLE_ENTITY -> throw new InvalidInputException(getErrorMessage(ex));
+            default -> {
+                LOG.warn("Got an unexpected HTTP error: {}, will rethrow it", ex.getStatusCode());
+                LOG.warn("Error body: {}", ex.getResponseBodyAsString());
+                throw ex;
             }
         }
     }

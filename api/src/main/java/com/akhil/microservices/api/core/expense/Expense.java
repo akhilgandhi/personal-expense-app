@@ -85,8 +85,8 @@ public class Expense {
         return notes;
     }
 
-    public void setNotes(String notes) {
-        this.notes = Optional.ofNullable(notes);
+    public void setNotes(Optional<String> notes) {
+        this.notes = notes;
     }
 
     public int getExpenseId() {

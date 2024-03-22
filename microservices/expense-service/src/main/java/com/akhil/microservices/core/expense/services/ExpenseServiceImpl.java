@@ -6,7 +6,10 @@ import com.akhil.microservices.api.core.expense.ExpenseService;
 import com.akhil.microservices.api.core.expense.PaymentMode;
 import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.api.exceptions.NotFoundException;
+import com.akhil.microservices.core.expense.persistence.ExpenseEntity;
+import com.akhil.microservices.core.expense.persistence.ExpenseRepository;
 import com.akhil.microservices.util.http.ServiceUtil;
+import com.mongodb.DuplicateKeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,9 +23,14 @@ import java.util.Optional;
 public class ExpenseServiceImpl implements ExpenseService {
 
     private static final Logger LOG = LoggerFactory.getLogger(ExpenseServiceImpl.class);
+
+    private final ExpenseRepository repository;
+    private final ExpenseMapper mapper;
     private final ServiceUtil serviceUtil;
 
-    public ExpenseServiceImpl(ServiceUtil serviceUtil) {
+    public ExpenseServiceImpl(ExpenseRepository repository, ExpenseMapper mapper, ServiceUtil serviceUtil) {
+        this.repository = repository;
+        this.mapper = mapper;
         this.serviceUtil = serviceUtil;
     }
 
@@ -33,21 +41,32 @@ public class ExpenseServiceImpl implements ExpenseService {
             throw new InvalidInputException("Invalid accountId: " + accountId);
         }
 
-        if (accountId == 113) {
-            LOG.debug("No expenses found for accountId: " + accountId);
-            return new ArrayList<>();
+        List<ExpenseEntity> entityList = repository.findByAccountId(accountId);
+        List<Expense> list = mapper.entityListToApiList(entityList);
+        list.forEach(e -> e.setServiceAddress(serviceUtil.getServiceAddress()));
+
+        LOG.debug("getExpenses: response size: {}", list.size());
+
+        return list;
+    }
+
+    @Override
+    public Expense createExpense(Expense expense) {
+        try {
+            ExpenseEntity entity = mapper.apiToEntity(expense);
+            ExpenseEntity newEntity = repository.save(entity);
+
+            LOG.debug("createExpense: created a expense entity: {}/{}", expense.getAccountId(), expense.getExpenseId());
+            return mapper.entityToApi(newEntity);
+        } catch (DuplicateKeyException dke) {
+            throw new InvalidInputException("Duplicate key, Account Id: " + expense.getAccountId() +
+                    ", Expense Id:" + expense.getExpenseId());
         }
+    }
 
-        List<Expense> expenses = new ArrayList<>();
-        expenses.add(new Expense(accountId, 1, LocalDateTime.now(), 10.0,
-                new Category("Category 1", true), "Expense 1", PaymentMode.CASH,
-                Optional.empty(), serviceUtil.getServiceAddress()));
-        expenses.add(new Expense(accountId, 2, LocalDateTime.now(), 11.0,
-                new Category("Category 2", true), "Expense 2", PaymentMode.CASH,
-                Optional.empty(), serviceUtil.getServiceAddress()));
-
-        LOG.debug("/expense response size: {}", expenses.size());
-
-        return expenses;
+    @Override
+    public void deleteExpenses(int accountId) {
+        LOG.debug("deleteExpenses: tries to delete expenses for the account with accountId: {}", accountId);
+        repository.deleteAll(repository.findByAccountId(accountId));
     }
 }

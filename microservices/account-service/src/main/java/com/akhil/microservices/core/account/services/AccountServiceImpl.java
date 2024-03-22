@@ -4,7 +4,10 @@ import com.akhil.microservices.api.core.account.Account;
 import com.akhil.microservices.api.core.account.AccountService;
 import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.api.exceptions.NotFoundException;
+import com.akhil.microservices.core.account.persistence.AccountEntity;
+import com.akhil.microservices.core.account.persistence.AccountRepository;
 import com.akhil.microservices.util.http.ServiceUtil;
+import com.mongodb.DuplicateKeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,10 +18,15 @@ public class AccountServiceImpl implements AccountService {
 
     private static final Logger LOG = LoggerFactory.getLogger(AccountServiceImpl.class);
 
-    private ServiceUtil serviceUtil;
+    private final AccountRepository repository;
+    private final AccountMapper mapper;
+    private final ServiceUtil serviceUtil;
 
     @Autowired
-    public AccountServiceImpl(ServiceUtil serviceUtil) {
+    public AccountServiceImpl(AccountRepository repository,
+                              AccountMapper mapper, ServiceUtil serviceUtil) {
+        this.repository = repository;
+        this.mapper = mapper;
         this.serviceUtil = serviceUtil;
     }
 
@@ -32,10 +40,27 @@ public class AccountServiceImpl implements AccountService {
             throw new InvalidInputException("Invalid accountId: " + accountId);
         }
 
-        if (accountId == 13) {
-            throw new NotFoundException("No account found for accountId: " + accountId);
-        }
+        AccountEntity entity = repository.findByAccountId(accountId)
+                .orElseThrow(() -> new NotFoundException("No account found for accountId: " + accountId));
 
-        return new Account(accountId, "Account " + accountId, serviceUtil.getServiceAddress());
+        Account response = mapper.entityToApi(entity);
+        response.setServiceAddress(serviceUtil.getServiceAddress());
+        return response;
+    }
+
+    @Override
+    public Account createAccount(Account body) {
+        try {
+            AccountEntity entity = mapper.apiToEntity(body);
+            AccountEntity newEntity =  repository.save(entity);
+            return mapper.entityToApi(newEntity);
+        } catch (DuplicateKeyException dke) {
+            throw new InvalidInputException("Duplicate key, Account Id: " + body.getAccountId());
+        }
+    }
+
+    @Override
+    public void deleteAccount(int accountId) {
+        repository.findByAccountId(accountId).ifPresent(repository::delete);
     }
 }

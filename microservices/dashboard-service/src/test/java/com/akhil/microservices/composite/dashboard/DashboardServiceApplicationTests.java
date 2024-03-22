@@ -1,5 +1,7 @@
 package com.akhil.microservices.composite.dashboard;
 
+import com.akhil.microservices.api.composite.dashboard.DashboardAggregate;
+import com.akhil.microservices.api.composite.dashboard.ExpenseSummary;
 import com.akhil.microservices.api.core.account.Account;
 import com.akhil.microservices.api.core.expense.Category;
 import com.akhil.microservices.api.core.expense.Expense;
@@ -21,6 +23,8 @@ import java.util.Collections;
 import java.util.Optional;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpStatus.OK;
+import static reactor.core.publisher.Mono.just;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class DashboardServiceApplicationTests {
@@ -64,6 +68,63 @@ class DashboardServiceApplicationTests {
 	void contextLoads() {}
 
 	@Test
+	void createAccountSummary() {
+
+		DashboardAggregate aggregateAccount = new DashboardAggregate(
+				1,
+				"name",
+				null,
+				null
+		);
+
+		postAndVerifyAccount(aggregateAccount, OK);
+	}
+
+	@Test
+	void createAccountSummary1() {
+
+		DashboardAggregate aggregateAccount = new DashboardAggregate(
+				1,
+				"name",
+				Collections.singletonList(new ExpenseSummary(
+						1,
+						LocalDateTime.now(),
+						10.0,
+						new Category("category", true),
+						"description",
+						PaymentMode.CASH,
+						Optional.empty())
+				),
+				null
+		);
+
+		postAndVerifyAccount(aggregateAccount, OK);
+	}
+
+	@Test
+	void deleteAccountSummary() {
+		DashboardAggregate aggregateAccount = new DashboardAggregate(
+				1,
+				"name",
+				Collections.singletonList(new ExpenseSummary(
+						1,
+						LocalDateTime.now(),
+						10.0,
+						new Category("category", true),
+						"description",
+						PaymentMode.CASH,
+						Optional.empty())
+				),
+				null
+		);
+
+		postAndVerifyAccount(aggregateAccount, OK);
+
+		deleteAndVerifyAccount(aggregateAccount.getAccountId(), OK);
+		deleteAndVerifyAccount(aggregateAccount.getAccountId(), OK);
+	}
+
+	@Test
 	void getAccountById() {
 
 		client.get()
@@ -103,5 +164,20 @@ class DashboardServiceApplicationTests {
 				.expectBody()
 				.jsonPath("$.path").isEqualTo("/dashboard/" + ACCOUNT_ID_INVALID)
 				.jsonPath("$.message").isEqualTo("INVALID: " + ACCOUNT_ID_INVALID);
+	}
+
+	private void postAndVerifyAccount(DashboardAggregate aggregate, HttpStatus expectedStatus) {
+		client.post()
+				.uri("/dashboard")
+				.body(just(aggregate), DashboardAggregate.class)
+				.exchange()
+				.expectStatus().isEqualTo(expectedStatus);
+	}
+
+	private void deleteAndVerifyAccount(int accountId, HttpStatus expectedStatus) {
+		client.delete()
+				.uri("/dashboard/" + accountId)
+				.exchange()
+				.expectStatus().isEqualTo(expectedStatus);
 	}
 }

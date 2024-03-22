@@ -8,6 +8,9 @@ services:
           memory: 512m
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      mongodb:
+        condition: service_healthy
 
   expense:
     build: microservices/expense-service
@@ -17,6 +20,9 @@ services:
           memory: 512m
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      mongodb:
+        condition: service_healthy
 
   dashboard:
     build: microservices/dashboard-service
@@ -28,3 +34,18 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
     ports:
       - "8080:8080"
+
+  mongodb:
+    image: mongo:6.0.4
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    ports:
+      - "27017:27017"
+    command: mongod
+    healthcheck:
+      test: "mongo --eval 'db.stats().ok'"
+      interval: 5s
+      timeout: 2s
+      retries: 60

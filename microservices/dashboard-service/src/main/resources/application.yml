@@ -47,6 +47,23 @@ api:
         
         ## Negative account ids
         422 - An **Unprocessable Entity** error will be returned
+    create-account-summary:
+      description: Creates a account composite
+      notes: |
+        # Normal response 
+        The composite account information posted to the API will be split up and stored as separate account info, 
+        expenses entities.
+        
+        # Expected error responses
+        1. If a account with the same accountId as specified in the posted information already exists, an 
+           **422 - UnprocessableEntity** error with a "duplicate key" error message will be returned
+    delete-account-summary:
+      description: Deletes a account composite
+      notes: |
+        # Normal response
+        Entities for account information, expenses related to the specified accountId will be deleted.
+        The implementation of the delete method is idempotent, that is, it can be called several times with the same response.
+        This means that a delete request of a non-existing product will return **200 Ok**.
   responseCodes:
     ok:
       description: OK
