@@ -4,12 +4,7 @@ server:
     include-message: always
 
 app:
-  account-service:
-    host: localhost
-    port: 8082
-  expense-service:
-    host: localhost
-    port: 8083
+  eureka-server: localhost
 
 api:
   common:
@@ -85,6 +80,8 @@ springdoc:
   pathsToMatch: /**
 
 spring:
+  application:
+    name: dashboard
   cloud:
     stream:
       defaultBinder: rabbit
@@ -108,6 +105,16 @@ spring:
     port: 5672
     username: guest
     password: guest
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://${app.eureka-server}:8761/eureka/
+      initialInstanceInfoReplicationIntervalSeconds: 5
+      registryFetchIntervalSeconds: 5
+    instance:
+      leaseRenewalIntervalInSeconds: 5
+      leaseExpirationDurationInSeconds: 5
 
 logging:
   level:
@@ -140,12 +147,7 @@ spring:
           brokers: kafka
 
 app:
-  account-service:
-    host: account
-    port: 8080
-  expense-service:
-    host: expense
-    port: 8080
+  eureka-server: eureka
 ---
 spring:
   config:

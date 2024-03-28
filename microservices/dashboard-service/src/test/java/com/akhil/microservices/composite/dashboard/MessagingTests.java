@@ -35,7 +35,8 @@ import static reactor.core.publisher.Mono.just;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "spring.main.allow-bean-definition-overriding=true"
+                "spring.main.allow-bean-definition-overriding=true",
+                "eureka.client.enabled=false"
         }
 )
 @Import({

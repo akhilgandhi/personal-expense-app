@@ -7,4 +7,4 @@ include ':microservices:invest-service'
 include ':microservices:reporting-service'
 include 'api'
 include 'util'
-
+include ':spring-cloud:eureka-server'

@@ -23,7 +23,11 @@ import java.util.Collections;
 
 import static org.mockito.Mockito.when;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+		properties = {
+				"eureka.client.enabled=false"
+		})
 class DashboardServiceApplicationTests {
 
 	private static final int ACCOUNT_ID_OK = 1;

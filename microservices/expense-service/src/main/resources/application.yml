@@ -1,7 +1,12 @@
 server:
   port: 8083
 
+app:
+  eureka-server: localhost
+
 spring:
+  application:
+    name: expense
   data:
     mongodb:
       host: localhost
@@ -43,6 +48,16 @@ spring:
     username: guest
     password: guest
 
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://${app.eureka-server}:8761/eureka/
+      initialInstanceInfoReplicationIntervalSeconds: 5
+      registryFetchIntervalSeconds: 5
+    instance:
+      leaseRenewalIntervalInSeconds: 5
+      leaseExpirationDurationInSeconds: 5
+
 logging:
   level:
     root: INFO
@@ -80,6 +95,9 @@ spring:
       kafka:
         binder:
           brokers: kafka
+
+app:
+  eureka-server: eureka
 ---
 spring:
   config:

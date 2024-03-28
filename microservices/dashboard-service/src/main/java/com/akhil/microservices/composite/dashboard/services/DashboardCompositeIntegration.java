@@ -36,6 +36,9 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
     public static final String EXPENSES_BINDING = "expenses-out-0";
     public static final String ACCOUNTS_BINDING = "accounts-out-0";
 
+    public static final String ACCOUNT_SERVICE_URL = "http://account";
+    public static final String EXPENSE_SERVICE_URL = "http://expense";
+
     private final WebClient webClient;
     private final ObjectMapper mapper;
 
@@ -51,18 +54,14 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
             @Qualifier("publishEventScheduler") Scheduler publishEventScheduler,
             WebClient.Builder webclient,
             ObjectMapper mapper,
-            StreamBridge streamBridge,
-            @Value("${app.account-service.host}") String accountServiceHost,
-            @Value("${app.account-service.port}") int accountServicePort,
-            @Value("${app.expense-service.host}") String expenseServiceHost,
-            @Value("${app.expense-service.port}") int expenseServicePort) {
+            StreamBridge streamBridge) {
         this.publishEventScheduler = publishEventScheduler;
         this.webClient = webclient.build();
         this.mapper = mapper;
         this.streamBridge = streamBridge;
 
-        this.accountServiceUrl = "http://" + accountServiceHost + ":" + accountServicePort;
-        this.expenseServiceUrl = "http://" + expenseServiceHost + ":" + expenseServicePort;
+        this.accountServiceUrl = ACCOUNT_SERVICE_URL;
+        this.expenseServiceUrl = EXPENSE_SERVICE_URL;
     }
 
     public Flux<Expense> getExpenses(int accountId) {
