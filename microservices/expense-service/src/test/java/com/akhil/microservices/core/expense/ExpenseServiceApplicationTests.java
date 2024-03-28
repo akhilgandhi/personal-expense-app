@@ -3,25 +3,28 @@ package com.akhil.microservices.core.expense;
 import com.akhil.microservices.api.core.expense.Category;
 import com.akhil.microservices.api.core.expense.Expense;
 import com.akhil.microservices.api.core.expense.PaymentMode;
+import com.akhil.microservices.api.event.Event;
+import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.core.expense.persistence.ExpenseRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.http.HttpStatus.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static reactor.core.publisher.Mono.just;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class ExpenseServiceApplicationTests {
+class ExpenseServiceApplicationTests extends MongoDbTestBase {
 
 	@Autowired
 	private WebTestClient client;
@@ -29,22 +32,25 @@ class ExpenseServiceApplicationTests {
 	@Autowired
 	private ExpenseRepository repository;
 
+	@Autowired
+	@Qualifier("messageProcessor")
+	private Consumer<Event<Integer, Expense>> messageProcessor;
+
 	@BeforeEach
 	void setupDb() {
-		repository.deleteAll();
+		repository.deleteAll().block();
 	}
 
 	@Test
-	@Disabled
 	void getExpensesByAccountId() {
 
 		int accountId = 1;
 
-		postAndVerifyExpense(accountId, 1, OK);
-		postAndVerifyExpense(accountId, 2, OK);
-		postAndVerifyExpense(accountId, 3, OK);
+		sendCreateExpenseEvent(accountId, 1);
+		sendCreateExpenseEvent(accountId, 2);
+		sendCreateExpenseEvent(accountId, 3);
 
-		assertEquals(3, repository.findByAccountId(accountId).size());
+		assertEquals(3, repository.findByAccountId(accountId).count().block());
 
 		getAndVerifyExpensesByAccountId(accountId, OK)
 				.jsonPath("$.length()").isEqualTo(3)
@@ -59,33 +65,32 @@ class ExpenseServiceApplicationTests {
 		int accountId = 1;
 		int expenseId = 1;
 
-		postAndVerifyExpense(accountId, expenseId, OK)
-				.jsonPath("$.accountId").isEqualTo(accountId)
-				.jsonPath("$.expenseId").isEqualTo(expenseId);
+		sendCreateExpenseEvent(accountId, expenseId);
 
-		assertEquals(1, repository.count());
+		assertEquals(1, repository.count().block());
 
-		postAndVerifyExpense(accountId, expenseId, UNPROCESSABLE_ENTITY)
-				.jsonPath("$.path").isEqualTo("/expense")
-				.jsonPath("$.message").isEqualTo("Duplicate key, Account Id: 1, Expense Id:1");
+		InvalidInputException thrown = assertThrows(
+				InvalidInputException.class,
+				() -> sendCreateExpenseEvent(accountId, expenseId),
+				"Expected a InvalidInputException here!");
+		assertEquals("Duplicate key, Account Id: 1, Expense Id:1", thrown.getMessage());
 
-		assertEquals(1, repository.count());
+		assertEquals(1, repository.count().block());
 	}
 
 	@Test
-	@Disabled
 	void deleteExpenses() {
 
 		int accountId = 1;
 		int expenseId = 1;
 
-		postAndVerifyExpense(accountId, expenseId, OK);
-		assertEquals(1, repository.findByAccountId(accountId).size());
+		sendCreateExpenseEvent(accountId, expenseId);
+		assertEquals(1, repository.findByAccountId(accountId).count().block());
 
-		deleteAndVerifyExpensesByAccountId(accountId, OK);
-		assertEquals(0, repository.findByAccountId(accountId).size());
+		sendDeleteExpenseEvent(accountId);
+		assertEquals(0, repository.findByAccountId(accountId).count().block());
 
-		deleteAndVerifyExpensesByAccountId(accountId, OK);
+		sendDeleteExpenseEvent(accountId);
 	}
 
 	@Test
@@ -101,13 +106,12 @@ class ExpenseServiceApplicationTests {
 	@Disabled
 	void getExpensesInvalidParameter() {
 
-		getAndVerifyExpensesByAccountId("?accountId=no-integer", BAD_REQUEST)
+		getAndVerifyExpensesByAccountId("?accountId=346878787521376", BAD_REQUEST)
 				.jsonPath("$.path").isEqualTo("/expense")
 				.jsonPath("$.message").isEqualTo("Type mismatch.");
 	}
 
 	@Test
-	@Disabled
 	void getExpensesNotFound() {
 
 		getAndVerifyExpensesByAccountId("?accountId=113", OK)
@@ -115,7 +119,6 @@ class ExpenseServiceApplicationTests {
 	}
 
 	@Test
-	@Disabled
 	void getExpensesInvalidParameterNegativeValue() {
 
 		int accountIdInvalid = -1;
@@ -139,27 +142,18 @@ class ExpenseServiceApplicationTests {
 				.expectBody();
 	}
 
-	private WebTestClient.BodyContentSpec postAndVerifyExpense(int accountId, int expenseId, HttpStatus expectedStatus) {
-		Expense expense = new Expense(accountId, expenseId, LocalDateTime.now(), 11.0,
-				new Category("a", true), "desc", PaymentMode.CASH, Optional.empty(),
-				"SA");
-		return client.post()
-				.uri("/expense")
-				.body(just(expense), Expense.class)
-				.accept(APPLICATION_JSON)
-				.exchange()
-				.expectStatus().isEqualTo(expectedStatus)
-				.expectHeader().contentType(APPLICATION_JSON)
-				.expectBody();
+	private void sendCreateExpenseEvent(int accountId, int expenseId) {
+		Expense expense = new Expense(accountId,
+				expenseId, LocalDateTime.now(), 10.0,
+				new Category("category-1", true), "Content " + expenseId,
+				PaymentMode.CASH, null, "SA");
+		Event<Integer, Expense> event = new Event<>(Event.Type.CREATE, accountId, expense);
+		messageProcessor.accept(event);
 	}
 
-	private WebTestClient.BodyContentSpec deleteAndVerifyExpensesByAccountId(int accountId, HttpStatus expectedStatus) {
-		return client.delete()
-				.uri("/expense?accountId=" + accountId)
-				.accept(APPLICATION_JSON)
-				.exchange()
-				.expectStatus().isEqualTo(expectedStatus)
-				.expectBody();
+	private void sendDeleteExpenseEvent(int accountId) {
+		Event<Integer, Expense> event = new Event<>(Event.Type.DELETE, accountId, null);
+		messageProcessor.accept(event);
 	}
 
 }

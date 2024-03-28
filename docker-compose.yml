@@ -11,6 +11,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   expense:
     build: microservices/expense-service
@@ -23,6 +25,8 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
   dashboard:
     build: microservices/dashboard-service
@@ -34,6 +38,9 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
     ports:
       - "8080:8080"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   mongodb:
     image: mongo:6.0.4
@@ -46,6 +53,21 @@ services:
     command: mongod
     healthcheck:
       test: "mongo --eval 'db.stats().ok'"
+      interval: 5s
+      timeout: 2s
+      retries: 60
+
+  rabbitmq:
+    image: rabbitmq:3.11.8-management
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
       interval: 5s
       timeout: 2s
       retries: 60

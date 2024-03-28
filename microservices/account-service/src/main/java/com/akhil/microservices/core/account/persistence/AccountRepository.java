@@ -1,13 +1,10 @@
 package com.akhil.microservices.core.account.persistence;
 
-import org.springframework.data.repository.CrudRepository;
-import org.springframework.data.repository.PagingAndSortingRepository;
-
-import java.util.Optional;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Mono;
 
 public interface AccountRepository extends
-        PagingAndSortingRepository<AccountEntity, String>,
-        CrudRepository<AccountEntity, String> {
+        ReactiveCrudRepository<AccountEntity, String> {
 
-    Optional<AccountEntity> findByAccountId(int accountId);
+    Mono<AccountEntity> findByAccountId(int accountId);
 }

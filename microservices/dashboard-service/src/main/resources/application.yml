@@ -1,5 +1,7 @@
 server:
   port: 8081
+  error:
+    include-message: always
 
 app:
   account-service:
@@ -82,6 +84,45 @@ springdoc:
   packagesToScan: com.akhil.microservices.composite.dashboard
   pathsToMatch: /**
 
+spring:
+  cloud:
+    stream:
+      defaultBinder: rabbit
+      default:
+        contentType: application/json
+      bindings:
+        accounts-out-0:
+          destination: accounts
+          producer:
+            required-groups: auditGroup
+        expenses-out-0:
+          destination: expenses
+          producer:
+            required-groups: auditGroup
+      kafka:
+        binder:
+          brokers: 127.0.0.1
+          defaultBrokerPort: 9092
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: guest
+    password: guest
+
+logging:
+  level:
+    root: INFO
+    com.akhil: DEBUG
+
+management:
+  endpoint:
+    health:
+      show-details: "ALWAYS"
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
 ---
 server:
   port: 8080
@@ -90,6 +131,13 @@ spring:
   config:
     activate:
       on-profile: docker
+  rabbitmq:
+    host: rabbitmq
+  cloud:
+    stream:
+      kafka:
+        binder:
+          brokers: kafka
 
 app:
   account-service:
@@ -98,3 +146,32 @@ app:
   expense-service:
     host: expense
     port: 8080
+---
+spring:
+  config:
+    activate:
+      on-profile: streaming_partitioned
+  cloud:
+    stream:
+      bindings:
+        accounts-out-0:
+          producer:
+            partition-key-expression: headers['partitionKey']
+            partition-count: 2
+        expenses-out-0:
+          producer:
+            partition-key-expression: headers['partitionKey']
+            partition-count: 2
+---
+spring:
+  config:
+    activate:
+      on-profile: kafka
+  kafka:
+    bootstrap-servers: kafka:9092
+  cloud:
+    stream:
+      defaultBinder: kafka
+      kafka:
+        binder:
+          replication-factor: 1

@@ -4,7 +4,6 @@ import com.akhil.microservices.api.core.expense.Category;
 import com.akhil.microservices.api.core.expense.PaymentMode;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 public class ExpenseSummary {
 
@@ -14,7 +13,7 @@ public class ExpenseSummary {
     private Category category;
     private String description;
     private PaymentMode paymentMode;
-    private Optional<String> notes;
+    private String notes;
 
     public ExpenseSummary() {
         expenseId = 0;
@@ -23,19 +22,19 @@ public class ExpenseSummary {
         category = null;
         description = null;
         paymentMode = PaymentMode.CASH;
-        notes = Optional.empty();
+        notes = null;
     }
 
     public ExpenseSummary(int expenseId, LocalDateTime transactionDateTime,
                           double amount, Category category, String description, PaymentMode paymentMode,
-                          Optional<String> notes) {
+                          String notes) {
         this.expenseId = expenseId;
         this.transactionDateTime = transactionDateTime;
         this.amount = amount;
         this.category = category;
         this.description = description;
         this.paymentMode = paymentMode;
-        this.notes = notes;
+        this.notes = (notes == null || notes.isEmpty()) ? "" : notes;
     }
 
     public int getExpenseId() {
@@ -86,11 +85,11 @@ public class ExpenseSummary {
         this.paymentMode = paymentMode;
     }
 
-    public Optional<String> getNotes() {
+    public String getNotes() {
         return notes;
     }
 
-    public void setNotes(Optional<String> notes) {
+    public void setNotes(String notes) {
         this.notes = notes;
     }
 }

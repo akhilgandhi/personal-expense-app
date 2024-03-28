@@ -1,8 +1,8 @@
 package com.akhil.microservices.api.core.expense;
 
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 public interface ExpenseService {
 
@@ -10,17 +10,17 @@ public interface ExpenseService {
             value = "/expense",
             produces = "application/json"
     )
-    List<Expense> getExpenses(@RequestParam(value = "accountId", required = true) int accountId);
+    Flux<Expense> getExpenses(@RequestParam(value = "accountId", required = true) int accountId);
 
     @PostMapping(
             value = "/expense",
             consumes = "application/json",
             produces = "application/json"
     )
-    Expense createExpense(@RequestBody Expense expense);
+    Mono<Expense> createExpense(@RequestBody Expense expense);
 
     @DeleteMapping(
             value = "/expense"
     )
-    void deleteExpenses(@RequestParam(value = "accountId", required = true) int accountId);
+    Mono<Void> deleteExpenses(@RequestParam(value = "accountId", required = true) int accountId);
 }

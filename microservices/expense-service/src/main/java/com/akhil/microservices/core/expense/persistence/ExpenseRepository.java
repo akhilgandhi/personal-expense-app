@@ -1,10 +1,9 @@
 package com.akhil.microservices.core.expense.persistence;
 
-import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import reactor.core.publisher.Flux;
 
-import java.util.List;
+public interface ExpenseRepository extends ReactiveCrudRepository<ExpenseEntity, String> {
 
-public interface ExpenseRepository extends CrudRepository<ExpenseEntity, String> {
-
-    List<ExpenseEntity> findByAccountId(int accountId);
+    Flux<ExpenseEntity> findByAccountId(int accountId);
 }

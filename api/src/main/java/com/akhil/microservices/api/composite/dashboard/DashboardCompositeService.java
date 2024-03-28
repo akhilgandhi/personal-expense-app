@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 @Tag(
         name = "Dashboard",
@@ -40,7 +41,7 @@ public interface DashboardCompositeService  {
             value = "/dashboard/{accountId}",
             produces = "application/json"
     )
-    DashboardAggregate getAccountSummary(@PathVariable int accountId);
+    Mono<DashboardAggregate> getAccountSummary(@PathVariable int accountId);
 
     @Operation(
             summary = "${api.dashboard.create-account-summary.description}",
@@ -61,7 +62,7 @@ public interface DashboardCompositeService  {
             value = "/dashboard",
             consumes = "application/json"
     )
-    void createAccount(@RequestBody DashboardAggregate body);
+    Mono<Void> createAccount(@RequestBody DashboardAggregate body);
 
     @Operation(
             summary = "${api.dashboard.delete-account-summary.description}",
@@ -82,5 +83,5 @@ public interface DashboardCompositeService  {
     @DeleteMapping(
             value = "/dashboard/{accountId}"
     )
-    void deleteAccount(@PathVariable int accountId);
+    Mono<Void> deleteAccount(@PathVariable int accountId);
 }

@@ -14,7 +14,6 @@ import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -30,54 +29,50 @@ public class PersistenceTests extends MongoDbTestBase {
 
     @BeforeEach
     void setupDb() {
-        repository.deleteAll();
+        repository.deleteAll().block();
 
         ExpenseEntity entity = new ExpenseEntity(1, 1, LocalDateTime.now(),
                 10.0, new Category("c", true), "desc",
-                PaymentMode.CASH, Optional.empty());
-        savedEntity = repository.save(entity);
+                PaymentMode.CASH, null);
+        savedEntity = repository.save(entity).block();
 
         assertEqualsExpense(entity, savedEntity);
     }
 
 
     @Test
-    @Disabled
     void create() {
 
         ExpenseEntity newEntity = new ExpenseEntity(1, 2, LocalDateTime.now(),
                 11.0, new Category("c", true), "desc",
-                PaymentMode.CASH, Optional.empty());
-        repository.save(newEntity);
+                PaymentMode.CASH, null);
+        repository.save(newEntity).block();
 
-        ExpenseEntity foundEntity = repository.findById(newEntity.getId()).get();
+        ExpenseEntity foundEntity = repository.findById(newEntity.getId()).block();
         assertEqualsExpense(newEntity, foundEntity);
 
-        assertEquals(2, repository.count());
+        assertEquals(2, repository.count().block());
     }
 
     @Test
-    @Disabled
     void update() {
         savedEntity.setDescription("description");
-        repository.save(savedEntity);
+        repository.save(savedEntity).block();
 
-        ExpenseEntity foundEntity = repository.findById(savedEntity.getId()).get();
+        ExpenseEntity foundEntity = repository.findById(savedEntity.getId()).block();
         assertEquals(1, (long)foundEntity.getVersion());
         assertEquals("description", foundEntity.getDescription());
     }
 
     @Test
-    @Disabled
     void delete() {
-        repository.delete(savedEntity);
-        assertFalse(repository.existsById(savedEntity.getId()));
+        repository.delete(savedEntity).block();
+        assertNotEquals(Boolean.TRUE, repository.existsById(savedEntity.getId()).block());
     }
 
     @Test
-    @Disabled
-    void getByProductId() {
-        List<ExpenseEntity> entityList = repository.findByAccountId(savedEntity.getAccountId());
+    void getByAccountId() {
+        List<ExpenseEntity> entityList = repository.findByAccountId(savedEntity.getAccountId()).collectList().block();
 
         assertThat(entityList, hasSize(1));
         assertEqualsExpense(savedEntity, entityList.get(0));
@@ -89,32 +84,31 @@ public class PersistenceTests extends MongoDbTestBase {
         assertThrows(DuplicateKeyException.class, () -> {
             ExpenseEntity entity = new ExpenseEntity(1, 2, LocalDateTime.now(),
                     11.0, new Category("c", true), "desc",
-                    PaymentMode.CASH, Optional.empty());
-            repository.save(entity);
+                    PaymentMode.CASH, null);
+            repository.save(entity).block();
         });
     }
 
     @Test
-    @Disabled
     void optimisticLockError() {
 
         // Store the saved entity in two separate entity objects
-        ExpenseEntity entity1 = repository.findById(savedEntity.getId()).get();
-        ExpenseEntity entity2 = repository.findById(savedEntity.getId()).get();
+        ExpenseEntity entity1 = repository.findById(savedEntity.getId()).block();
+        ExpenseEntity entity2 = repository.findById(savedEntity.getId()).block();
 
         // Update the entity using the first entity object
         entity1.setDescription("desc1");
-        repository.save(entity1);
+        repository.save(entity1).block();
 
         //  Update the entity using the second entity object.
         // This should fail since the second entity now holds an old version number, i.e. an Optimistic Lock Error
         assertThrows(OptimisticLockingFailureException.class, () -> {
             entity2.setDescription("desc2");
-            repository.save(entity2);
+            repository.save(entity2).block();
         });
 
         // Get the updated entity from the database and verify its new state
-        ExpenseEntity updatedEntity = repository.findById(savedEntity.getId()).get();
+        ExpenseEntity updatedEntity = repository.findById(savedEntity.getId()).block();
         assertEquals(1, (int)updatedEntity.getVersion());
         assertEquals("desc1", updatedEntity.getDescription());
     }

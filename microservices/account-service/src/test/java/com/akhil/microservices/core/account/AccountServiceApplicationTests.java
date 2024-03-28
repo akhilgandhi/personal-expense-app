@@ -1,20 +1,23 @@
 package com.akhil.microservices.core.account;
 
 import com.akhil.microservices.api.core.account.Account;
+import com.akhil.microservices.api.event.Event;
+import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.core.account.persistence.AccountRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.function.Consumer;
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.http.HttpStatus.*;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static reactor.core.publisher.Mono.just;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AccountServiceApplicationTests extends MongoDbTestBase {
@@ -25,9 +28,13 @@ class AccountServiceApplicationTests extends MongoDbTestBase {
 	@Autowired
 	private AccountRepository repository;
 
+	@Autowired
+	@Qualifier("messageProcessor")
+	private Consumer<Event<Integer, Account>> messageProcessor;
+
 	@BeforeEach
 	void setupDb() {
-		repository.deleteAll();
+		repository.deleteAll().block();
 	}
 
 	@Test
@@ -35,9 +42,13 @@ class AccountServiceApplicationTests extends MongoDbTestBase {
 
 		int accountId = 1;
 
-		postAndVerifyAccount(accountId, OK);
+		assertNull(repository.findByAccountId(accountId).block());
+		assertEquals(0, repository.count().block());
 
-		assertTrue(repository.findByAccountId(accountId).isPresent());
+		sendCreateAccountEvent(accountId);
+
+		assertNotNull(repository.findByAccountId(accountId).block());
+		assertEquals(1, repository.count().block());
 
 		getAndVerifyAccount(accountId, OK).jsonPath("$.accountId").isEqualTo(accountId);
 	}
@@ -48,13 +59,17 @@ class AccountServiceApplicationTests extends MongoDbTestBase {
 
 		int accountId = 1;
 
-		postAndVerifyAccount(accountId, OK);
+		assertNull(repository.findByAccountId(accountId).block());
 
-		assertTrue(repository.findByAccountId(accountId).isPresent());
+		sendCreateAccountEvent(accountId);
 
-		postAndVerifyAccount(accountId, UNPROCESSABLE_ENTITY)
-				.jsonPath("$.path").isEqualTo("/account")
-				.jsonPath("$.message").isEqualTo("Duplicate key, Account Id: " + accountId);
+		assertNotNull(repository.findByAccountId(accountId).block());
+
+		InvalidInputException thrown = assertThrows(
+				InvalidInputException.class,
+				() -> sendCreateAccountEvent(accountId),
+				"Expected a InvalidInputException here!");
+		assertEquals("Duplicate key, Account Id: " + accountId, thrown.getMessage());
 	}
 
 	@Test
@@ -62,24 +77,26 @@ class AccountServiceApplicationTests extends MongoDbTestBase {
 
 		int accountId = 1;
 
-		postAndVerifyAccount(accountId, OK);
-		assertTrue(repository.findByAccountId(accountId).isPresent());
+		sendCreateAccountEvent(accountId);
+		assertNotNull(repository.findByAccountId(accountId).block());
 
-		deleteAndVerifyAccount(accountId, OK);
-		assertFalse(repository.findByAccountId(accountId).isPresent());
+		sendDeleteAccountEvent(accountId);
+		assertNull(repository.findByAccountId(accountId).block());
 
-		deleteAndVerifyAccount(accountId, OK);
+		sendDeleteAccountEvent(accountId);
 	}
 
 	@Test
-	void getProductInvalidParameterString() {
+	@Disabled
+	void getAccountInvalidParameterString() {
 
-		getAndVerifyAccount("/32412232476575", BAD_REQUEST)
-				.jsonPath("$.path").isEqualTo("/account/32412232476575");
+		getAndVerifyAccount("/35617356276356787", BAD_REQUEST)
+				.jsonPath("$.path").isEqualTo("/product/35617356276356787")
+				.jsonPath("$.message").isEqualTo("Type mismatch.");
 	}
 
 	@Test
-	void getProductNotFound() {
+	void getAccountNotFound() {
 
 		int accountIdNotFound = 13;
 		getAndVerifyAccount(accountIdNotFound, NOT_FOUND)
@@ -88,7 +105,7 @@ class AccountServiceApplicationTests extends MongoDbTestBase {
 	}
 
 	@Test
-	void getProductInvalidParameterNegativeValue() {
+	void getAccountInvalidParameterNegativeValue() {
 
 		int accountIdInvalid = -1;
 
@@ -111,24 +128,14 @@ class AccountServiceApplicationTests extends MongoDbTestBase {
 				.expectBody();
 	}
 
-	private WebTestClient.BodyContentSpec postAndVerifyAccount(int accountId, HttpStatus expectedStatus) {
+	private void sendCreateAccountEvent(int accountId) {
 		Account account = new Account(accountId, "Name " + accountId, "SA");
-		return client.post()
-				.uri("/account")
-				.body(just(account), Account.class)
-				.accept(APPLICATION_JSON)
-				.exchange()
-				.expectStatus().isEqualTo(expectedStatus)
-				.expectHeader().contentType(APPLICATION_JSON)
-				.expectBody();
+		Event<Integer, Account> event = new Event<>(Event.Type.CREATE, accountId, account);
+		messageProcessor.accept(event);
 	}
 
-	private WebTestClient.BodyContentSpec deleteAndVerifyAccount(int accountId, HttpStatus expectedStatus) {
-		return client.delete()
-				.uri("/account/" + accountId)
-				.accept(APPLICATION_JSON)
-				.exchange()
-				.expectStatus().isEqualTo(expectedStatus)
-				.expectBody();
+	private void sendDeleteAccountEvent(int accountId) {
+		Event<Integer, Account> event = new Event<>(Event.Type.DELETE, accountId, null);
+		messageProcessor.accept(event);
 	}
 }

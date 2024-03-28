@@ -1,17 +1,28 @@
 package com.akhil.microservices.composite.dashboard.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.swagger.v3.oas.models.ExternalDocumentation;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 @Component
 public class AppConfig {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AppConfig.class);
 
     @Value("${api.common.title}")
     private String apiTitle;
@@ -42,6 +53,15 @@ public class AppConfig {
     }
 
     @Bean
+    @Primary
+    ObjectMapper mapper() {
+        return JsonMapper.builder()
+                .findAndAddModules()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .build();
+    }
+
+    @Bean
     public OpenAPI getOpenApiDocumentation() {
         return new OpenAPI()
                 .info(
@@ -67,5 +87,23 @@ public class AppConfig {
                                 .description(apiExternalDocDescription)
                                 .url(apiExternalDocUrl)
                 );
+    }
+
+    private final Integer threadPoolSize;
+    private final Integer taskQueueSize;
+
+    @Autowired
+    public AppConfig(
+            @Value("${app.threadPoolSize:10}") Integer threadPoolSize,
+            @Value("${app.taskQueueSize:100}") Integer taskQueueSize
+    ) {
+        this.threadPoolSize = threadPoolSize;
+        this.taskQueueSize = taskQueueSize;
+    }
+
+    @Bean
+    public Scheduler publishEventScheduler() {
+        LOG.info("Creates a messagingScheduler with connectionPoolSize = {}", threadPoolSize);
+        return Schedulers.newBoundedElastic(threadPoolSize, taskQueueSize, "publish-pool");
     }
 }

@@ -8,7 +8,6 @@ import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 @Document(
         collection = "expenses"
@@ -48,7 +47,7 @@ public class ExpenseEntity {
 
     public ExpenseEntity(int accountId, int expenseId, LocalDateTime transactionDateTime,
                          double amount, Category category, String description,
-                         PaymentMode paymentMode, Optional<String> notes) {
+                         PaymentMode paymentMode, String notes) {
         this.accountId = accountId;
         this.expenseId = expenseId;
         this.transactionDateTime = transactionDateTime;
@@ -56,7 +55,7 @@ public class ExpenseEntity {
         this.category = category;
         this.description = description;
         this.paymentMode = paymentMode;
-        this.notes = notes.orElse(null);
+        this.notes = (notes == null || notes.isEmpty()) ? "" : notes;
     }
 
     public String getId() {
@@ -131,11 +130,11 @@ public class ExpenseEntity {
         this.paymentMode = paymentMode;
     }
 
-    public Optional<String> getNotes() {
-        return Optional.ofNullable(notes);
+    public String getNotes() {
+        return notes;
     }
 
-    public void setNotes(Optional<String> notes) {
-        this.notes = notes.orElse(null);
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 }

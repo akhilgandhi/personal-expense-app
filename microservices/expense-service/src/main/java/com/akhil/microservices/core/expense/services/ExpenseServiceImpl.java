@@ -1,11 +1,8 @@
 package com.akhil.microservices.core.expense.services;
 
-import com.akhil.microservices.api.core.expense.Category;
 import com.akhil.microservices.api.core.expense.Expense;
 import com.akhil.microservices.api.core.expense.ExpenseService;
-import com.akhil.microservices.api.core.expense.PaymentMode;
 import com.akhil.microservices.api.exceptions.InvalidInputException;
-import com.akhil.microservices.api.exceptions.NotFoundException;
 import com.akhil.microservices.core.expense.persistence.ExpenseEntity;
 import com.akhil.microservices.core.expense.persistence.ExpenseRepository;
 import com.akhil.microservices.util.http.ServiceUtil;
@@ -13,11 +10,10 @@ import com.mongodb.DuplicateKeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.logging.Level;
 
 @RestController
 public class ExpenseServiceImpl implements ExpenseService {
@@ -35,38 +31,52 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
-    public List<Expense> getExpenses(int accountId) {
+    public Flux<Expense> getExpenses(int accountId) {
 
         if (accountId < 1) {
             throw new InvalidInputException("Invalid accountId: " + accountId);
         }
 
-        List<ExpenseEntity> entityList = repository.findByAccountId(accountId);
-        List<Expense> list = mapper.entityListToApiList(entityList);
-        list.forEach(e -> e.setServiceAddress(serviceUtil.getServiceAddress()));
+        LOG.info("Will get expenses for account with id={}", accountId);
 
-        LOG.debug("getExpenses: response size: {}", list.size());
-
-        return list;
+        return repository.findByAccountId(accountId)
+                .log(LOG.getName(), Level.FINE)
+                .map(mapper::entityToApi)
+                .map(this::setServiceAddress);
     }
 
     @Override
-    public Expense createExpense(Expense expense) {
-        try {
-            ExpenseEntity entity = mapper.apiToEntity(expense);
-            ExpenseEntity newEntity = repository.save(entity);
+    public Mono<Expense> createExpense(Expense expense) {
 
-            LOG.debug("createExpense: created a expense entity: {}/{}", expense.getAccountId(), expense.getExpenseId());
-            return mapper.entityToApi(newEntity);
-        } catch (DuplicateKeyException dke) {
-            throw new InvalidInputException("Duplicate key, Account Id: " + expense.getAccountId() +
-                    ", Expense Id:" + expense.getExpenseId());
+        if (expense.getAccountId() < 1) {
+            throw new InvalidInputException("Invalid accountId: " + expense.getAccountId());
         }
+
+        ExpenseEntity entity = mapper.apiToEntity(expense);
+        Mono<Expense> newEntity = repository.save(entity)
+                .log(LOG.getName(), Level.FINE)
+                .onErrorMap(
+                        DuplicateKeyException.class,
+                        ex -> new InvalidInputException("Duplicate Key, Account Id: " + expense.getAccountId() +
+                                ", Expense Id: " + expense.getExpenseId())
+                )
+                .map(mapper::entityToApi);
+
+        return newEntity;
     }
 
     @Override
-    public void deleteExpenses(int accountId) {
+    public Mono<Void> deleteExpenses(int accountId) {
+        if (accountId < 1) {
+            throw new InvalidInputException("Invalid accountId: " + accountId);
+        }
+
         LOG.debug("deleteExpenses: tries to delete expenses for the account with accountId: {}", accountId);
-        repository.deleteAll(repository.findByAccountId(accountId));
+        return repository.deleteAll(repository.findByAccountId(accountId));
+    }
+
+    private Expense setServiceAddress(Expense expense) {
+        expense.setServiceAddress(serviceUtil.getServiceAddress());
+        return expense;
     }
 }

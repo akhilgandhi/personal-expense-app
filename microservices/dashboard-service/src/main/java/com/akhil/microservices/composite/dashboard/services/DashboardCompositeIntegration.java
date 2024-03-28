@@ -4,6 +4,7 @@ import com.akhil.microservices.api.core.account.Account;
 import com.akhil.microservices.api.core.account.AccountService;
 import com.akhil.microservices.api.core.expense.Expense;
 import com.akhil.microservices.api.core.expense.ExpenseService;
+import com.akhil.microservices.api.event.Event;
 import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.api.exceptions.NotFoundException;
 import com.akhil.microservices.util.http.HttpErrorInfo;
@@ -11,146 +12,179 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
+import org.springframework.boot.actuate.health.Health;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.logging.Level;
 
 @Component
 public class DashboardCompositeIntegration implements AccountService, ExpenseService {
 
     private static final Logger LOG = LoggerFactory.getLogger(DashboardCompositeIntegration.class);
+    public static final String EXPENSES_BINDING = "expenses-out-0";
+    public static final String ACCOUNTS_BINDING = "accounts-out-0";
 
-    private final RestTemplate restTemplate;
+    private final WebClient webClient;
     private final ObjectMapper mapper;
 
     private final String accountServiceUrl;
     private final String expenseServiceUrl;
 
+    private final StreamBridge streamBridge;
+    private final Scheduler publishEventScheduler;
+
 
     @Autowired
-    public DashboardCompositeIntegration(RestTemplate restTemplate,
-                                         ObjectMapper mapper,
-                                         @Value("${app.account-service.host}") String accountServiceHost,
-                                         @Value("${app.account-service.port}") int accountServicePort,
-                                         @Value("${app.expense-service.host}") String expenseServiceHost,
-                                         @Value("${app.expense-service.port}") int expenseServicePort) {
-        this.restTemplate = restTemplate;
+    public DashboardCompositeIntegration(
+            @Qualifier("publishEventScheduler") Scheduler publishEventScheduler,
+            WebClient.Builder webclient,
+            ObjectMapper mapper,
+            StreamBridge streamBridge,
+            @Value("${app.account-service.host}") String accountServiceHost,
+            @Value("${app.account-service.port}") int accountServicePort,
+            @Value("${app.expense-service.host}") String expenseServiceHost,
+            @Value("${app.expense-service.port}") int expenseServicePort) {
+        this.publishEventScheduler = publishEventScheduler;
+        this.webClient = webclient.build();
         this.mapper = mapper;
+        this.streamBridge = streamBridge;
 
-        this.accountServiceUrl = "http://" + accountServiceHost + ":" + accountServicePort + "/account";
-        this.expenseServiceUrl = "http://" + expenseServiceHost + ":" + expenseServicePort + "/expense";
+        this.accountServiceUrl = "http://" + accountServiceHost + ":" + accountServicePort;
+        this.expenseServiceUrl = "http://" + expenseServiceHost + ":" + expenseServicePort;
     }
 
-    public List<Expense> getExpenses(int accountId) {
-        try {
-            String url = expenseServiceUrl + "?accountId=" + accountId;
+    public Flux<Expense> getExpenses(int accountId) {
 
-            LOG.debug("Will call getExpenses API on URL: {}", url);
-            List<Expense> expenses = restTemplate.exchange(url, HttpMethod.GET, null,
-                    new ParameterizedTypeReference<List<Expense>>() {
-                    }).getBody();
+        String url = expenseServiceUrl + "/expense?accountId=" + accountId;
 
-            LOG.debug("Found {} expenses for an account with id: {}", expenses.size(), accountId);
-            return expenses;
-        } catch (Exception ex) {
-            LOG.warn("Got an exception while requesting expenses, return zero expenses: {}", ex.getMessage());
-            return new ArrayList<>();
-        }
-    }
+        LOG.debug("Will call the getExpenses API on url: {}", url);
 
-    @Override
-    public Expense createExpense(Expense expense) {
-
-        try {
-            String url = expenseServiceUrl;
-            LOG.debug("Will post a new expense to URL: {}", url);
-
-            Expense newExpense = restTemplate.postForObject(url, expense, Expense.class);
-            LOG.debug("Created a expense with id: {}", newExpense.getAccountId());
-
-            return newExpense;
-        } catch (HttpClientErrorException ex) {
-            throw handleHttpClientException(ex);
-        }
+        // Return an empty result if something goes wrong to make it possible for the dashboard service to
+        // return partial responses
+        return webClient
+                .get()
+                .uri(url)
+                .retrieve()
+                .bodyToFlux(Expense.class)
+                .log(LOG.getName(), Level.FINE)
+                .onErrorResume(error -> Flux.empty());
     }
 
     @Override
-    public void deleteExpenses(int accountId) {
+    public Mono<Expense> createExpense(Expense expense) {
 
-        try {
-            String url = expenseServiceUrl + "?accountId=" + accountId;
-            LOG.debug("Will call the deleteExpenses API on URL: {}", url);
-
-            restTemplate.delete(url);
-        } catch (HttpClientErrorException ex) {
-            throw handleHttpClientException(ex);
-        }
+        return Mono.fromCallable(() -> {
+            sendMessage(EXPENSES_BINDING, new Event<>(Event.Type.CREATE, expense.getAccountId(), expense));
+            return expense;
+        }).subscribeOn(publishEventScheduler);
     }
 
     @Override
-    public Account getAccount(int accountId) {
-        try {
-            String url = accountServiceUrl + "/" + accountId;
-            LOG.debug("Will call getAccount API on URL: {}", url);
+    public Mono<Void> deleteExpenses(int accountId) {
 
-            Account account = restTemplate.getForObject(url, Account.class);
-            LOG.debug("Found an account with id: {}", account.getAccountId());
-
-            return account;
-        } catch (HttpClientErrorException ex) {
-            throw handleHttpClientException(ex);
-        }
+        return Mono.fromRunnable(() -> sendMessage(EXPENSES_BINDING,
+                new Event<>(Event.Type.DELETE, accountId, null)))
+                .subscribeOn(publishEventScheduler).then();
     }
 
     @Override
-    public Account createAccount(Account body) {
-        try {
-            String url = accountServiceUrl;
-            LOG.debug("Will post a new account to URL: {}", url);
+    public Mono<Account> getAccount(int accountId) {
 
-            Account account = restTemplate.postForObject(url, body, Account.class);
-            LOG.debug("Created a account with id: {}", account.getAccountId());
+        String url = accountServiceUrl + "/account/" + accountId;
 
-            return account;
-        } catch (HttpClientErrorException ex) {
-            throw handleHttpClientException(ex);
-        }
+        LOG.debug("Will call the getAccount API on url: {}", url);
+
+        return webClient
+                .get()
+                .uri(url)
+                .retrieve()
+                .bodyToMono(Account.class)
+                .log(LOG.getName(), Level.FINE)
+                .onErrorMap(WebClientResponseException.class, this::handleException);
     }
 
     @Override
-    public void deleteAccount(int accountId) {
+    public Mono<Account> createAccount(Account body) {
+        return Mono.fromCallable(() -> {
 
-        try {
-            String url = accountServiceUrl + "/" + accountId;
-            LOG.debug("Will call the deleteAccount API on URL: {}", url);
-
-            restTemplate.delete(url);
-        } catch (HttpClientErrorException ex) {
-            throw handleHttpClientException(ex);
-        }
+            sendMessage(ACCOUNTS_BINDING,
+                    new Event<>(Event.Type.CREATE, body.getAccountId(), body));
+            return body;
+        }).subscribeOn(publishEventScheduler);
     }
 
-    private RuntimeException handleHttpClientException(HttpClientErrorException ex) {
-        switch (HttpStatus.resolve(ex.getStatusCode().value())) {
-            case NOT_FOUND -> throw new NotFoundException(getErrorMessage(ex));
-            case UNPROCESSABLE_ENTITY -> throw new InvalidInputException(getErrorMessage(ex));
+    @Override
+    public Mono<Void> deleteAccount(int accountId) {
+
+        return Mono.fromRunnable(() -> sendMessage(ACCOUNTS_BINDING,
+                new Event<>(Event.Type.DELETE, accountId, null)))
+                .subscribeOn(publishEventScheduler).then();
+    }
+
+    // health endpoints
+    public Mono<Health> getAccountHealth() {
+        return getHealth(accountServiceUrl);
+    }
+
+    public Mono<Health> getExpenseHealth() {
+        return getHealth(expenseServiceUrl);
+    }
+
+    private Mono<Health> getHealth(String url) {
+        url += "/actuator/health";
+        LOG.debug("Will call the Health API on url: {}", url);
+        return webClient
+                .get()
+                .uri(url)
+                .retrieve()
+                .bodyToMono(String.class)
+                .map(s -> new Health.Builder().up().build())
+                .onErrorResume(ex -> Mono.just(
+                        new Health.Builder().down(ex).build()
+                ))
+                .log(LOG.getName(), Level.FINE);
+    }
+
+    private void sendMessage(String bindingName, Event event) {
+        LOG.debug("Sending a {} message to {}", event.getType(), bindingName);
+        Message message = MessageBuilder.withPayload(event)
+                .setHeader("partitionKey", event.getKey())
+                .build();
+        streamBridge.send(bindingName, message);
+    }
+
+    private Throwable handleException(Throwable ex) {
+
+        if (!(ex instanceof WebClientResponseException)) {
+            LOG.warn("Got an unexpected error: {}, will rethrow it", ex.toString());
+        }
+
+        WebClientResponseException wcre = (WebClientResponseException) ex;
+
+        switch (HttpStatus.resolve(wcre.getStatusCode().value())) {
+            case NOT_FOUND -> throw new NotFoundException(getErrorMessage(wcre));
+            case UNPROCESSABLE_ENTITY -> throw new InvalidInputException(getErrorMessage(wcre));
             default -> {
-                LOG.warn("Got an unexpected HTTP error: {}, will rethrow it", ex.getStatusCode());
-                LOG.warn("Error body: {}", ex.getResponseBodyAsString());
-                throw ex;
+                LOG.warn("Got an unexpected HTTP error: {}, will rethrow it", wcre.getStatusCode());
+                LOG.warn("Error body: {}", wcre.getResponseBodyAsString());
+                return ex;
             }
         }
     }
 
-    private String getErrorMessage(HttpClientErrorException ex) {
+    private String getErrorMessage(WebClientResponseException ex) {
         try {
             return mapper.readValue(ex.getResponseBodyAsString(), HttpErrorInfo.class).getMessage();
         } catch (IOException ioex) {

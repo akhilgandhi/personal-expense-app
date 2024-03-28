@@ -1,7 +1,6 @@
 package com.akhil.microservices.api.core.expense;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 public class Expense {
 
@@ -12,7 +11,7 @@ public class Expense {
     private Category category;
     private String description;
     private PaymentMode paymentMode;
-    private Optional<String> notes;
+    private String notes;
     private String serviceAddress;
 
     public Expense() {
@@ -23,13 +22,13 @@ public class Expense {
         category = null;
         description = null;
         paymentMode = PaymentMode.CASH;
-        notes = Optional.empty();
+        notes = null;
         serviceAddress = null;
     }
 
     public Expense(int accountId, int expenseId, LocalDateTime transactionDateTime, double amount,
                    Category category, String description, PaymentMode paymentMode,
-                   Optional<String> notes, String serviceAddress) {
+                   String notes, String serviceAddress) {
         this.expenseId = expenseId;
         this.accountId = accountId;
         this.transactionDateTime = transactionDateTime;
@@ -37,7 +36,7 @@ public class Expense {
         this.category = category;
         this.description = description;
         this.paymentMode = paymentMode;
-        this.notes = notes;
+        this.notes = (notes == null || notes.isEmpty()) ? "" : notes;
         this.serviceAddress = serviceAddress;
     }
 
@@ -81,11 +80,11 @@ public class Expense {
         this.paymentMode = paymentMode;
     }
 
-    public Optional<String> getNotes() {
+    public String getNotes() {
         return notes;
     }
 
-    public void setNotes(Optional<String> notes) {
+    public void setNotes(String notes) {
         this.notes = notes;
     }
 

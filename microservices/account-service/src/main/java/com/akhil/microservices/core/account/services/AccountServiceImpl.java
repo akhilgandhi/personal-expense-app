@@ -12,6 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
+
+import java.util.logging.Level;
 
 @RestController
 public class AccountServiceImpl implements AccountService {
@@ -32,7 +35,7 @@ public class AccountServiceImpl implements AccountService {
 
 
     @Override
-    public Account getAccount(int accountId) {
+    public Mono<Account> getAccount(int accountId) {
 
         LOG.debug("/account return the found account for accountId={}", accountId);
 
@@ -40,27 +43,48 @@ public class AccountServiceImpl implements AccountService {
             throw new InvalidInputException("Invalid accountId: " + accountId);
         }
 
-        AccountEntity entity = repository.findByAccountId(accountId)
-                .orElseThrow(() -> new NotFoundException("No account found for accountId: " + accountId));
-
-        Account response = mapper.entityToApi(entity);
-        response.setServiceAddress(serviceUtil.getServiceAddress());
-        return response;
+        return repository.findByAccountId(accountId)
+                .switchIfEmpty(Mono.error(new NotFoundException("No account found for accountId: " + accountId)))
+                .log(LOG.getName(), Level.FINE)
+                .map(mapper::entityToApi)
+                .map(this::setServiceAddress);
     }
 
     @Override
-    public Account createAccount(Account body) {
-        try {
-            AccountEntity entity = mapper.apiToEntity(body);
-            AccountEntity newEntity =  repository.save(entity);
-            return mapper.entityToApi(newEntity);
-        } catch (DuplicateKeyException dke) {
-            throw new InvalidInputException("Duplicate key, Account Id: " + body.getAccountId());
+    public Mono<Account> createAccount(Account body) {
+
+        if (body.getAccountId() < 1) {
+            throw new InvalidInputException("Invalid accountId: " + body.getAccountId());
         }
+
+        AccountEntity entity = mapper.apiToEntity(body);
+        Mono<Account> newEntity = repository.save(entity)
+                .log(LOG.getName(), Level.FINE)
+                .onErrorMap(
+                        DuplicateKeyException.class,
+                        ex -> new InvalidInputException("Duplicate Key, Account Id: " + body.getAccountId())
+                )
+                .map(mapper::entityToApi);
+
+        return newEntity;
     }
 
     @Override
-    public void deleteAccount(int accountId) {
-        repository.findByAccountId(accountId).ifPresent(repository::delete);
+    public Mono<Void> deleteAccount(int accountId) {
+
+        if (accountId < 1) {
+            throw new InvalidInputException("Invalid accountId: " + accountId);
+        }
+
+        LOG.debug("deleteProduct: tries to delete an entity with accountId: {}", accountId);
+        return repository.findByAccountId(accountId)
+                .log(LOG.getName(), Level.FINE)
+                .map(repository::delete)
+                .flatMap(e -> e);
+    }
+
+    private Account setServiceAddress(Account e) {
+        e.setServiceAddress(serviceUtil.getServiceAddress());
+        return e;
     }
 }
