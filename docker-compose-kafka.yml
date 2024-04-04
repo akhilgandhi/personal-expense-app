@@ -64,8 +64,6 @@ services:
           memory: 512m
     environment:
       - SPRING_PROFILES_ACTIVE=docker,streaming_partitioned,kafka
-    ports:
-      - "8080:8080"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -106,5 +104,14 @@ services:
       resources:
         limits:
           memory: 512m
+
+  gateway:
+    build: spring-cloud/gateway
+    deploy:
+      resources:
+        limits:
+          memory: 512m
     ports:
-      - "8761:8761"
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker

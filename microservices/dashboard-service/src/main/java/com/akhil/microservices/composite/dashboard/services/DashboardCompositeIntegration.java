@@ -13,8 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.actuate.health.Health;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.http.HttpStatus;
 import org.springframework.messaging.Message;
@@ -130,30 +128,6 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
         return Mono.fromRunnable(() -> sendMessage(ACCOUNTS_BINDING,
                 new Event<>(Event.Type.DELETE, accountId, null)))
                 .subscribeOn(publishEventScheduler).then();
-    }
-
-    // health endpoints
-    public Mono<Health> getAccountHealth() {
-        return getHealth(accountServiceUrl);
-    }
-
-    public Mono<Health> getExpenseHealth() {
-        return getHealth(expenseServiceUrl);
-    }
-
-    private Mono<Health> getHealth(String url) {
-        url += "/actuator/health";
-        LOG.debug("Will call the Health API on url: {}", url);
-        return webClient
-                .get()
-                .uri(url)
-                .retrieve()
-                .bodyToMono(String.class)
-                .map(s -> new Health.Builder().up().build())
-                .onErrorResume(ex -> Mono.just(
-                        new Health.Builder().down(ex).build()
-                ))
-                .log(LOG.getName(), Level.FINE);
     }
 
     private void sendMessage(String bindingName, Event event) {
