@@ -4,6 +4,7 @@ import com.akhil.microservices.api.core.expense.Category;
 import com.akhil.microservices.api.core.expense.PaymentMode;
 import com.akhil.microservices.core.expense.persistence.ExpenseEntity;
 import com.akhil.microservices.core.expense.persistence.ExpenseRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,9 @@ public class PersistenceTests extends MongoDbTestBase {
 
     @Autowired
     private ExpenseRepository repository;
+
+    @Autowired
+    private ObjectMapper mapper;
 
     private ExpenseEntity savedEntity;
 

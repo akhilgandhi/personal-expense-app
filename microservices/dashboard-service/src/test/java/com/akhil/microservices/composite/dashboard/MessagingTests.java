@@ -1,5 +1,6 @@
 package com.akhil.microservices.composite.dashboard;
 
+import com.akhil.microservices.api.composite.dashboard.AccountSummary;
 import com.akhil.microservices.api.composite.dashboard.DashboardAggregate;
 import com.akhil.microservices.api.composite.dashboard.ExpenseSummary;
 import com.akhil.microservices.api.core.account.Account;
@@ -61,7 +62,7 @@ public class MessagingTests {
     @Test
     void createDashboard1() {
 
-        DashboardAggregate composite = new DashboardAggregate(1, "name", null, null);
+        DashboardAggregate composite = new DashboardAggregate(new AccountSummary(1, "name"), null, null);
         postAndVerifyAccount(composite, OK);
 
         final List<String> accountMessages = getMessages("accounts");
@@ -70,8 +71,8 @@ public class MessagingTests {
         // Assert one expected new product event queued up
         assertEquals(1, accountMessages.size());
 
-        Event<Integer, Account> expectedEvent = new Event<>(Event.Type.CREATE, composite.getAccountId(),
-                new Account(composite.getAccountId(), composite.getName(), null));
+        Event<Integer, Account> expectedEvent = new Event<>(Event.Type.CREATE, composite.getAccount().getAccountId(),
+                new Account(composite.getAccount().getAccountId(), composite.getAccount().getName(), null));
         assertThat(accountMessages.get(0), is(sameEventExceptCreatedAt(expectedEvent)));
 
         // Assert no recommendation and review events
@@ -81,7 +82,7 @@ public class MessagingTests {
     @Test
     void createDashboard2() {
 
-        DashboardAggregate composite = new DashboardAggregate(1, "name",
+        DashboardAggregate composite = new DashboardAggregate(new AccountSummary(1, "name"),
                 Collections.singletonList(
                         new ExpenseSummary(1, LocalDateTime.now(), 10.0,
                                 new Category("c", true),
@@ -95,8 +96,8 @@ public class MessagingTests {
         assertEquals(1, accountMessages.size());
 
         Event<Integer, Account> expectedAccountEvent =
-                new Event<>(Event.Type.CREATE, composite.getAccountId(),
-                        new Account(composite.getAccountId(), composite.getName(), null));
+                new Event<>(Event.Type.CREATE, composite.getAccount().getAccountId(),
+                        new Account(composite.getAccount().getAccountId(), composite.getAccount().getName(), null));
         assertThat(accountMessages.get(0), is(sameEventExceptCreatedAt(expectedAccountEvent)));
 
         // Assert one create expense event queued up
@@ -104,8 +105,8 @@ public class MessagingTests {
 
         ExpenseSummary rec = composite.getExpenses().get(0);
         Event<Integer, Expense> expectedExpenseEvent =
-                new Event<>(Event.Type.CREATE, composite.getAccountId(),
-                        new Expense(composite.getAccountId(),
+                new Event<>(Event.Type.CREATE, composite.getAccount().getAccountId(),
+                        new Expense(composite.getAccount().getAccountId(),
                                 rec.getExpenseId(),
                                 rec.getTransactionDateTime(),
                                 rec.getAmount(),
@@ -146,7 +147,7 @@ public class MessagingTests {
 
     private void deleteAndVerifyAccount(int accountId, HttpStatus expectedStatus) {
         client.delete()
-                .uri("/dashboard/" + accountId)
+                .uri("/dashboard/account/" + accountId)
                 .exchange()
                 .expectStatus().isEqualTo(expectedStatus);
     }

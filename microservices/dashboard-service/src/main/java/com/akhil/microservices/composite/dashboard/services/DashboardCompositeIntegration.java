@@ -4,6 +4,7 @@ import com.akhil.microservices.api.core.account.Account;
 import com.akhil.microservices.api.core.account.AccountService;
 import com.akhil.microservices.api.core.expense.Expense;
 import com.akhil.microservices.api.core.expense.ExpenseService;
+import com.akhil.microservices.api.core.expense.PaymentMode;
 import com.akhil.microservices.api.event.Event;
 import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.api.exceptions.NotFoundException;
@@ -25,6 +26,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.logging.Level;
 
 @Component
@@ -93,6 +95,14 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
 
         return Mono.fromRunnable(() -> sendMessage(EXPENSES_BINDING,
                 new Event<>(Event.Type.DELETE, accountId, null)))
+                .subscribeOn(publishEventScheduler).then();
+    }
+
+    @Override
+    public Mono<Void> deleteExpense(int accountId, int expenseId) {
+
+        return Mono.fromRunnable(() -> sendMessage(EXPENSES_BINDING,
+                new Event<>(Event.Type.DELETE, accountId, expenseId)))
                 .subscribeOn(publishEventScheduler).then();
     }
 

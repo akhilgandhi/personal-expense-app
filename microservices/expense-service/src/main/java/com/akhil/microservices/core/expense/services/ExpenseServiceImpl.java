@@ -75,6 +75,20 @@ public class ExpenseServiceImpl implements ExpenseService {
         return repository.deleteAll(repository.findByAccountId(accountId));
     }
 
+    @Override
+    public Mono<Void> deleteExpense(int accountId, int expenseId) {
+        if (accountId < 1 || expenseId < 1) {
+            throw new InvalidInputException("Invalid accountId: " + accountId + ", or expenseId: " + expenseId);
+        }
+
+        LOG.debug("deleteExpense: tries to delete expense with expenseId: {} for the account with accountId: {}",
+                expenseId, accountId);
+        return repository.findByAccountIdAndExpenseId(accountId, expenseId)
+                .log(LOG.getName(), Level.FINE)
+                .map(repository::delete)
+                .flatMap(e -> e);
+    }
+
     private Expense setServiceAddress(Expense expense) {
         expense.setServiceAddress(serviceUtil.getServiceAddress());
         return expense;

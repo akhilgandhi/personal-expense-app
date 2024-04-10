@@ -38,7 +38,7 @@ class ExpenseServiceApplicationTests extends MongoDbTestBase {
 
 	@Autowired
 	@Qualifier("messageProcessor")
-	private Consumer<Event<Integer, Expense>> messageProcessor;
+	private Consumer<Event<Integer, ?>> messageProcessor;
 
 	@BeforeEach
 	void setupDb() {

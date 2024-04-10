@@ -20,7 +20,13 @@ public interface ExpenseService {
     Mono<Expense> createExpense(@RequestBody Expense expense);
 
     @DeleteMapping(
-            value = "/expense"
+            value = "/expense/all"
     )
     Mono<Void> deleteExpenses(@RequestParam(value = "accountId", required = true) int accountId);
+
+    @DeleteMapping(
+            value = "/expense"
+    )
+    Mono<Void> deleteExpense(@RequestParam(value = "accountId", required = true) int accountId,
+                             @RequestParam(value = "expenseId", required = true) int expenseId);
 }

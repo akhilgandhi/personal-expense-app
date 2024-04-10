@@ -4,29 +4,26 @@ import java.util.List;
 
 public class DashboardAggregate {
 
-    private final int accountId;
-    private final String name;
+    private final AccountSummary account;
     private final List<ExpenseSummary> expenses;
     private final ServiceAddresses serviceAddresses;
 
     public DashboardAggregate() {
-        accountId = 0;
-        name = null;
+        account = null;
         expenses = null;
         serviceAddresses = null;
     }
 
-    public DashboardAggregate(int accountId, String name,
+    public DashboardAggregate(AccountSummary account,
                               List<ExpenseSummary> expenses,
                               ServiceAddresses serviceAddresses) {
-        this.accountId = accountId;
-        this.name = name;
+        this.account = account;
         this.expenses = expenses;
         this.serviceAddresses = serviceAddresses;
     }
 
-    public int getAccountId() {
-        return accountId;
+    public AccountSummary getAccount() {
+        return account;
     }
 
     public List<ExpenseSummary> getExpenses() {
@@ -35,9 +32,5 @@ public class DashboardAggregate {
 
     public ServiceAddresses getServiceAddresses() {
         return serviceAddresses;
-    }
-
-    public String getName() {
-        return name;
     }
 }

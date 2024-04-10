@@ -23,7 +23,7 @@ api:
       email: contact@mail.com
   dashboard:
     get-account-summary:
-      description: Returns a composite view of the specified account id
+      description: Returns a holistic view of the specified account
       notes: |
         # Normal response
         If the requested account id is found the method will return information regarding: 
@@ -46,7 +46,7 @@ api:
         ## Negative account ids
         422 - An **Unprocessable Entity** error will be returned
     create-account-summary:
-      description: Creates a account composite
+      description: Creates an account with expenses
       notes: |
         # Normal response 
         The composite account information posted to the API will be split up and stored as separate account info, 
@@ -55,11 +55,35 @@ api:
         # Expected error responses
         1. If a account with the same accountId as specified in the posted information already exists, an 
            **422 - UnprocessableEntity** error with a "duplicate key" error message will be returned
+    create-account:
+      description: Creates an account
+      notes: |
+        # Normal response 
+        The account information posted to the API will be stored as account info entity.
+
+        # Expected error responses
+        1. If a account with the same accountId as specified in the posted information already exists, an 
+           **422 - UnprocessableEntity** error with a "duplicate key" error message will be returned
     delete-account-summary:
-      description: Deletes a account composite
+      description: Deletes an account including all the expenses
       notes: |
         # Normal response
         Entities for account information, expenses related to the specified accountId will be deleted.
+        The implementation of the delete method is idempotent, that is, it can be called several times with the same response.
+        This means that a delete request of a non-existing product will return **200 Ok**.
+    create-expense-summary:
+      description: Creates a expense for an account
+      notes: |
+        # Normal response 
+        The expense information posted to the API will be stored as expense entity.
+        # Expected error responses
+        1. If a expense with the same expenseId as specified in the posted information already exists, an 
+           **422 - UnprocessableEntity** error with a "duplicate key" error message will be returned.
+    delete-expense-summary:
+      description: Deletes an expense for an account
+      notes: |
+        # Normal response
+        Entity for expense information related to the specified expenseId under accountId will be deleted.
         The implementation of the delete method is idempotent, that is, it can be called several times with the same response.
         This means that a delete request of a non-existing product will return **200 Ok**.
   responseCodes:

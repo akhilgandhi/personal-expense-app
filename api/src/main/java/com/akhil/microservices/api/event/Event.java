@@ -9,7 +9,7 @@ public class Event<K, T> {
 
     public enum Type {
         CREATE,
-        DELETE
+        DELETE,
     }
 
     private final Type type;

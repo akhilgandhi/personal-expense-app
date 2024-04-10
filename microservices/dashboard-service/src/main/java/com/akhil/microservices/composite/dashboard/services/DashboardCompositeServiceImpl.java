@@ -1,9 +1,6 @@
 package com.akhil.microservices.composite.dashboard.services;
 
-import com.akhil.microservices.api.composite.dashboard.DashboardAggregate;
-import com.akhil.microservices.api.composite.dashboard.DashboardCompositeService;
-import com.akhil.microservices.api.composite.dashboard.ExpenseSummary;
-import com.akhil.microservices.api.composite.dashboard.ServiceAddresses;
+import com.akhil.microservices.api.composite.dashboard.*;
 import com.akhil.microservices.api.core.account.Account;
 import com.akhil.microservices.api.core.expense.Expense;
 import com.akhil.microservices.util.http.ServiceUtil;
@@ -32,7 +29,7 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
     }
 
     @Override
-    public Mono<DashboardAggregate> getAccountSummary(int accountId) {
+    public Mono<DashboardAggregate> getDashboardSummary(int accountId) {
 
         LOG.info("Will get aggregated account info for account id={}", accountId);
 
@@ -51,15 +48,15 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
         try {
             List<Mono> monoList = new ArrayList<>();
 
-            LOG.debug("Will create a new composite entity for account.id: {}", body.getAccountId());
+            LOG.debug("Will create a new composite entity for account.id: {}", body.getAccount().getAccountId());
 
-            Account account = new Account(body.getAccountId(), body.getName(), null);
+            Account account = new Account(body.getAccount().getAccountId(), body.getAccount().getName(), null);
             monoList.add(integration.createAccount(account));
 
             if (body.getExpenses() != null) {
                 body.getExpenses().forEach(
                         exps -> {
-                            Expense expense = new Expense(body.getAccountId(),
+                            Expense expense = new Expense(body.getAccount().getAccountId(),
                                     exps.getExpenseId(),
                                     exps.getTransactionDateTime(),
                                     exps.getAmount(),
@@ -73,9 +70,26 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
                 );
             }
 
-            LOG.debug("createAccount: composite entities created for accountId: {}", body.getAccountId());
+            LOG.debug("createAccount: composite entities created for accountId: {}", body.getAccount().getAccountId());
 
             return Mono.zip(r -> "", monoList.toArray(new Mono[0]))
+                    .doOnError(ex -> LOG.warn("createDashboardAccount failed: {}", ex.toString()))
+                    .then();
+        } catch (RuntimeException re) {
+            LOG.warn("createDashboardAccount failed", re);
+            throw re;
+        }
+    }
+
+    @Override
+    public Mono<Void> createAccount(AccountSummary body) {
+
+        try {
+            LOG.debug("Will create a new account entity for account.id: {}", body.getAccountId());
+
+            Account account = new Account(body.getAccountId(), body.getName(), null);
+            return integration.createAccount(account)
+                    .doOnSuccess(res -> LOG.debug("createAccount: account created for accountId: {}", body.getAccountId()))
                     .doOnError(ex -> LOG.warn("createDashboardAccount failed: {}", ex.toString()))
                     .then();
         } catch (RuntimeException re) {
@@ -88,7 +102,7 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
     public Mono<Void> deleteAccount(int accountId) {
 
         try {
-            LOG.info("Will delete a account aggregate for product.id: {}", accountId);
+            LOG.info("Will delete a account aggregate for account.id: {}", accountId);
 
             return Mono.zip(
                             r -> "",
@@ -103,11 +117,54 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
         }
     }
 
+    @Override
+    public Mono<Void> createExpense(int accountId, ExpenseSummary body) {
+
+        try {
+            LOG.debug("Will create a new expense entity for account.id: {}", accountId);
+
+            Expense expense = new Expense(accountId,
+                    body.getExpenseId(),
+                    body.getTransactionDateTime(),
+                    body.getAmount(),
+                    body.getCategory(),
+                    body.getDescription(),
+                    body.getPaymentMode(),
+                    body.getNotes(),
+                    null);
+
+            return integration.createExpense(expense)
+                    .doOnSuccess(res -> LOG.debug("createExpense: expense created for accountId: {}", accountId))
+                    .doOnError(ex -> LOG.warn("createExpense failed: {}", ex.toString()))
+                    .then();
+
+        } catch (RuntimeException re) {
+            LOG.warn("createExpense failed", re);
+            throw re;
+        }
+    }
+
+    @Override
+    public Mono<Void> deleteExpense(int accountId, int expenseId) {
+
+        try {
+            LOG.info("Will delete an expense for account.id: {}, expense.id: {}", accountId, expenseId);
+
+            return integration.deleteExpense(accountId, expenseId)
+                    .doOnSuccess(res -> LOG.debug("deleteExpense: expense with expenseId {} deleted for accountId: {}",
+                            expenseId, accountId))
+                    .doOnError(ex -> LOG.warn("deleteExpense failed: {}", ex.toString()))
+                    .then();
+        } catch (RuntimeException re) {
+            LOG.warn("deleteExpense failed", re);
+            throw re;
+        }
+    }
+
     private DashboardAggregate createDashboardAggregate(Account account, List<Expense> expenses, String serviceAddress) {
 
         // 1. setup account info
-        int accountId = account.getAccountId();
-        String name = account.getName();
+        AccountSummary accountSummary = new AccountSummary(account.getAccountId(), account.getName());
 
         // 2. Copy summary expense info, if available
         List<ExpenseSummary> expenseSummaries = (expenses == null) ? null : expenses.stream()
@@ -126,6 +183,6 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
         String expenseAddress = (expenses != null && !expenses.isEmpty()) ? expenses.get(0).getServiceAddress() : "";
         ServiceAddresses serviceAddresses = new ServiceAddresses(accountAddress, expenseAddress);
 
-        return new DashboardAggregate(accountId, name, expenseSummaries, serviceAddresses);
+        return new DashboardAggregate(accountSummary, expenseSummaries, serviceAddresses);
     }
 }

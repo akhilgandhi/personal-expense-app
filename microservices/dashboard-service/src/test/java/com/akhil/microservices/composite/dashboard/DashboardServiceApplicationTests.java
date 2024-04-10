@@ -78,7 +78,7 @@ class DashboardServiceApplicationTests {
 				.expectStatus().isOk()
 				.expectHeader().contentType(MediaType.APPLICATION_JSON)
 				.expectBody()
-				.jsonPath("$.accountId").isEqualTo(ACCOUNT_ID_OK)
+				.jsonPath("$.account.accountId").isEqualTo(ACCOUNT_ID_OK)
 				.jsonPath("$.expenses.length()").isEqualTo(1);
 	}
 
