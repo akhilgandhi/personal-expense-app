@@ -24,8 +24,10 @@ import java.util.Collections;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest(
+		classes = {TestSecurityConfig.class},
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		properties = {
+				"spring.main.allow-bean-definition-overriding=true",
 				"eureka.client.enabled=false"
 		})
 class DashboardServiceApplicationTests {

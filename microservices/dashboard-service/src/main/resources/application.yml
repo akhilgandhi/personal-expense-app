@@ -5,7 +5,10 @@ server:
   forward-headers-strategy: framework
 
 app:
+  auth-server: localhost
   eureka-server: localhost
+  eureka-username: u
+  eureka-password: p
 
 api:
   common:
@@ -98,15 +101,31 @@ api:
 
 springdoc:
   swagger-ui:
+    oauth2-redirect-url: /swagger-ui/oauth2-redirect.html
+    oauth:
+      clientId: writer
+      clientSecret: secret-writer
+      useBasicAuthenticationWithAccessCodeGrant: true
     path: /openapi/swagger-ui.html
   api-docs:
     path: /openapi/v3/api-docs
   packagesToScan: com.akhil.microservices.composite.dashboard
   pathsToMatch: /**
+  oAuthFlow:
+    authorizationUrl: https://localhost:8443/oauth2/authorize
+    tokenUrl: https://localhost:8443/oauth2/token
+  cache:
+    disabled: true
 
 spring:
   application:
     name: dashboard
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          #issuer-uri: https://dev-2nodnh1cai7yfl68.us.auth0.com/
+          issuer-uri: http://${app.auth-server}:9999
   cloud:
     stream:
       defaultBinder: rabbit
@@ -134,7 +153,7 @@ spring:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://${app.eureka-server}:8761/eureka/
+      defaultZone: http://${app.eureka-username}:${app.eureka-password}@${app.eureka-server}:8761/eureka/
       initialInstanceInfoReplicationIntervalSeconds: 5
       registryFetchIntervalSeconds: 5
     instance:
@@ -172,6 +191,7 @@ spring:
           brokers: kafka
 
 app:
+  auth-server: auth-server
   eureka-server: eureka
 ---
 spring:

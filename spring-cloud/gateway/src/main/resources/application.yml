@@ -1,13 +1,21 @@
 server:
-  port: 8080
+  port: 8443
+  ssl:
+    key-store-type: PKCS12
+    key-store: classpath:keystore/edge.p12
+    key-store-password: changeme
+    key-alias: localhost
 
 app:
+  auth-server: localhost
   eureka-server: localhost
+  eureka-username: u
+  eureka-password: p
 
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://${app.eureka-server}:8761/eureka/
+      defaultZone: http://${app.eureka-username}:${app.eureka-password}@${app.eureka-server}:8761/eureka/
       initialInstanceInfoReplicationIntervalSeconds: 5
       registryFetchIntervalSeconds: 5
     instance:
@@ -17,6 +25,12 @@ eureka:
 spring:
   application:
     name: gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          #issuer-uri: https://dev-2nodnh1cai7yfl68.us.auth0.com/
+          issuer-uri: http://${app.auth-server}:9999
   cloud:
     gateway:
       routes:
@@ -28,6 +42,18 @@ spring:
           uri: lb://dashboard
           predicates:
             - Path=/openapi/**
+        - id: oauth2-server
+          uri: lb://auth-server
+          predicates:
+            - Path=/oauth2/**
+        - id: oauth2-login
+          uri: lb://auth-server
+          predicates:
+            - Path=/login/**
+        - id: oauth2-error
+          uri: lb://auth-server
+          predicates:
+            - Path=/error/**
         - id: eureka-api
           uri: http://${app.eureka-server}:8761
           predicates:
@@ -67,4 +93,5 @@ spring:
       on-profile: docker
 
 app:
+  auth-server: auth-server
   eureka-server: eureka

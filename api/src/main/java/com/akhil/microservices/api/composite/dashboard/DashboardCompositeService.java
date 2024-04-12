@@ -3,6 +3,7 @@ package com.akhil.microservices.api.composite.dashboard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -11,6 +12,7 @@ import reactor.core.publisher.Mono;
         name = "Dashboard",
         description = "REST API for composite information on dashboard."
 )
+@SecurityRequirement(name = "security_auth")
 public interface DashboardCompositeService  {
 
     @Operation(
