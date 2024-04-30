@@ -21,11 +21,14 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.util.UriComponentsBuilder;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.logging.Level;
 
@@ -107,9 +110,11 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
     }
 
     @Override
-    public Mono<Account> getAccount(int accountId) {
+    public Mono<Account> getAccount(int accountId, int delay, int faultPercent) {
 
-        String url = accountServiceUrl + "/account/" + accountId;
+        URI url = UriComponentsBuilder.fromUriString(ACCOUNT_SERVICE_URL + "/account/{accountId}?delay={delay}" 
+            + "&faultPercent={faultPercent}")
+            .build(accountId, delay, faultPercent);
 
         LOG.debug("Will call the getAccount API on url: {}", url);
 

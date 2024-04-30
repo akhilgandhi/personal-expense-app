@@ -9,7 +9,9 @@ public interface AccountService {
             value = "/account/{accountId}",
             produces = "application/json"
     )
-    Mono<Account> getAccount(@PathVariable int accountId);
+    Mono<Account> getAccount(@PathVariable int accountId, 
+                @RequestParam(value = "delay", required = false, defaultValue = "0") int delay, 
+                @RequestParam(value = "faultPercent", required = false, defaultValue = "0") int faultPercent);
 
     @PostMapping(
             value = "/account",

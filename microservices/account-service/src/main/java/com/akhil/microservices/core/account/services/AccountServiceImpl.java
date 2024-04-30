@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.util.Random;
 import java.util.logging.Level;
 
 @RestController
@@ -24,6 +26,7 @@ public class AccountServiceImpl implements AccountService {
     private final AccountRepository repository;
     private final AccountMapper mapper;
     private final ServiceUtil serviceUtil;
+    private final Random randomNumberGenerator = new Random();
 
     @Autowired
     public AccountServiceImpl(AccountRepository repository,
@@ -35,7 +38,7 @@ public class AccountServiceImpl implements AccountService {
 
 
     @Override
-    public Mono<Account> getAccount(int accountId) {
+    public Mono<Account> getAccount(int accountId, int delay, int faultPercent) {
 
         LOG.debug("/account return the found account for accountId={}", accountId);
 
@@ -44,6 +47,8 @@ public class AccountServiceImpl implements AccountService {
         }
 
         return repository.findByAccountId(accountId)
+                .map(e -> throwErrorIfBadLuck(e, faultPercent))
+                .delayElement(Duration.ofSeconds(delay))
                 .switchIfEmpty(Mono.error(new NotFoundException("No account found for accountId: " + accountId)))
                 .log(LOG.getName(), Level.FINE)
                 .map(mapper::entityToApi)
@@ -86,5 +91,31 @@ public class AccountServiceImpl implements AccountService {
     private Account setServiceAddress(Account e) {
         e.setServiceAddress(serviceUtil.getServiceAddress());
         return e;
+    }
+
+    private AccountEntity throwErrorIfBadLuck(AccountEntity entity, int faultPercent) {
+        if (faultPercent == 0) {
+            return entity;
+        }
+
+        int randomThreshold = getRandomNumber(1, 100);
+
+        if (faultPercent < randomThreshold) {
+            LOG.debug("We got lucky, no error occured, {} < {}", faultPercent, randomThreshold);
+        } else {
+            LOG.info("Bad luck, an error occured, {} >= {}", faultPercent, randomThreshold);
+            throw new RuntimeException("Something went wrong...");
+        }
+
+        return entity;
+
+    }
+
+    private int getRandomNumber(int min, int max) {
+        if (min > max) {
+            throw new IllegalArgumentException("Max must be greater than min");
+        }
+
+        return randomNumberGenerator.nextInt((max - min) + 1) + min;
     }
 }

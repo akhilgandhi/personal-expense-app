@@ -7,6 +7,7 @@ import com.akhil.microservices.util.http.ServiceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextImpl;
@@ -30,10 +31,15 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
     private final ServiceUtil serviceUtil;
     private final DashboardCompositeIntegration integration;
 
-    @Autowired
-    public DashboardCompositeServiceImpl(ServiceUtil serviceUtil, DashboardCompositeIntegration integration) {
+    private final int delay;
+    private final int faultPercent;
+
+    public DashboardCompositeServiceImpl(ServiceUtil serviceUtil, DashboardCompositeIntegration integration, 
+                @Value("${app.resilience.delay}") int delay, @Value("${app.resilience.faultPercent}") int faultPercent) {
         this.serviceUtil = serviceUtil;
         this.integration = integration;
+        this.delay = delay;
+        this.faultPercent = faultPercent;
     }
 
     @Override
@@ -44,7 +50,7 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
         return Mono.zip(
                 values -> createDashboardAggregate((Account) values[0], (List<Expense>) values[1],
                         serviceUtil.getServiceAddress()),
-                integration.getAccount(accountId),
+                integration.getAccount(accountId, delay, faultPercent),
                 integration.getExpenses(accountId).collectList())
                 .doOnError(ex -> LOG.warn("getAccountSummary failed: {}", ex.toString()))
                 .log(LOG.getName(), Level.FINE);
