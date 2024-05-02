@@ -35,6 +35,8 @@ class DashboardServiceApplicationTests {
 	private static final int ACCOUNT_ID_OK = 1;
 	private static final int ACCOUNT_ID_NOT_FOUND = 2;
 	private static final int ACCOUNT_ID_INVALID = 3;
+	private static final int DELAY = 0;
+	private static final int FAULT_PERCENT = 0;
 
 	@Autowired
 	private WebTestClient client;
@@ -45,7 +47,7 @@ class DashboardServiceApplicationTests {
 	@BeforeEach
 	void setUp() {
 
-		when(integration.getAccount(ACCOUNT_ID_OK))
+		when(integration.getAccount(ACCOUNT_ID_OK, DELAY, FAULT_PERCENT))
 				.thenReturn(Mono.just(new Account(ACCOUNT_ID_OK, "name", "mock-address")));
 		when(integration.getExpenses(ACCOUNT_ID_OK))
 				.thenReturn(Flux.fromIterable(Collections.singletonList(
@@ -60,10 +62,10 @@ class DashboardServiceApplicationTests {
 								null,
 								"mock-address"))));
 
-		when(integration.getAccount(ACCOUNT_ID_NOT_FOUND))
+		when(integration.getAccount(ACCOUNT_ID_NOT_FOUND, DELAY, FAULT_PERCENT))
 				.thenThrow(new NotFoundException("NOT FOUND: " + ACCOUNT_ID_NOT_FOUND));
 
-		when(integration.getAccount(ACCOUNT_ID_INVALID))
+		when(integration.getAccount(ACCOUNT_ID_INVALID, DELAY, FAULT_PERCENT))
 				.thenThrow(new InvalidInputException("INVALID: " + ACCOUNT_ID_INVALID));
 	}
 

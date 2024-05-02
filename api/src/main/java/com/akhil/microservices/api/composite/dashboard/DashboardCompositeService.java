@@ -43,7 +43,9 @@ public interface DashboardCompositeService  {
             value = "/dashboard/{accountId}",
             produces = "application/json"
     )
-    Mono<DashboardAggregate> getDashboardSummary(@PathVariable int accountId);
+    Mono<DashboardAggregate> getDashboardSummary(@PathVariable int accountId,
+        @RequestParam(value = "delay", required = false, defaultValue = "0") int delay,
+        @RequestParam(value = "faultPercent", required = false, defaultValue = "0") int faultPercent);
 
     @Operation(
             summary = "${api.dashboard.create-account-summary.description}",

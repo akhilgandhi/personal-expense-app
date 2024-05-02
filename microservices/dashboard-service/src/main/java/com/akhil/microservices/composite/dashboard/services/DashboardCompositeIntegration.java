@@ -9,7 +9,12 @@ import com.akhil.microservices.api.event.Event;
 import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.api.exceptions.NotFoundException;
 import com.akhil.microservices.util.http.HttpErrorInfo;
+import com.akhil.microservices.util.http.ServiceUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,19 +56,21 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
     private final StreamBridge streamBridge;
     private final Scheduler publishEventScheduler;
 
+    private final ServiceUtil serviceUtil;
 
     @Autowired
     public DashboardCompositeIntegration(
             @Qualifier("publishEventScheduler") Scheduler publishEventScheduler,
             WebClient.Builder webclient,
             ObjectMapper mapper,
-            StreamBridge streamBridge) {
+            StreamBridge streamBridge, ServiceUtil serviceUtil) {
         this.publishEventScheduler = publishEventScheduler;
         this.webClient = webclient.build();
         this.mapper = mapper;
         this.streamBridge = streamBridge;
+        this.serviceUtil = serviceUtil;
 
-        this.accountServiceUrl = ACCOUNT_SERVICE_URL;
+      this.accountServiceUrl = ACCOUNT_SERVICE_URL;
         this.expenseServiceUrl = EXPENSE_SERVICE_URL;
     }
 
@@ -109,10 +116,13 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
                 .subscribeOn(publishEventScheduler).then();
     }
 
+    @Retry(name = "account")
+    @TimeLimiter(name = "account")
+    @CircuitBreaker(name = "account", fallbackMethod = "getAccountFallBackValue")
     @Override
     public Mono<Account> getAccount(int accountId, int delay, int faultPercent) {
 
-        URI url = UriComponentsBuilder.fromUriString(ACCOUNT_SERVICE_URL + "/account/{accountId}?delay={delay}" 
+        URI url = UriComponentsBuilder.fromUriString(accountServiceUrl + "/account/{accountId}?delay={delay}"
             + "&faultPercent={faultPercent}")
             .build(accountId, delay, faultPercent);
 
@@ -143,6 +153,17 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
         return Mono.fromRunnable(() -> sendMessage(ACCOUNTS_BINDING,
                 new Event<>(Event.Type.DELETE, accountId, null)))
                 .subscribeOn(publishEventScheduler).then();
+    }
+
+    private Mono<Account> getAccountFallBackValue(int accountId, int delay, int faultPercent,
+        CallNotPermittedException ex) {
+        if (accountId == 13) {
+            String errMsg = "Account Id: " + accountId + " not found in fallback cache!!!";
+            throw new NotFoundException(errMsg);
+        }
+
+        return Mono.just(new Account(accountId, "Fallback account " + accountId,
+            serviceUtil.getServiceAddress()));
     }
 
     private void sendMessage(String bindingName, Event event) {

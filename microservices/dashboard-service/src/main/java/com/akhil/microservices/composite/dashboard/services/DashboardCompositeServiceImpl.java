@@ -31,19 +31,14 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
     private final ServiceUtil serviceUtil;
     private final DashboardCompositeIntegration integration;
 
-    private final int delay;
-    private final int faultPercent;
-
-    public DashboardCompositeServiceImpl(ServiceUtil serviceUtil, DashboardCompositeIntegration integration, 
-                @Value("${app.resilience.delay}") int delay, @Value("${app.resilience.faultPercent}") int faultPercent) {
+    public DashboardCompositeServiceImpl(ServiceUtil serviceUtil, DashboardCompositeIntegration integration) {
         this.serviceUtil = serviceUtil;
         this.integration = integration;
-        this.delay = delay;
-        this.faultPercent = faultPercent;
     }
 
     @Override
-    public Mono<DashboardAggregate> getDashboardSummary(int accountId) {
+    public Mono<DashboardAggregate> getDashboardSummary(int accountId,
+        int delay, int faultPercent) {
 
         LOG.info("Will get aggregated account info for account id={}", accountId);
 
