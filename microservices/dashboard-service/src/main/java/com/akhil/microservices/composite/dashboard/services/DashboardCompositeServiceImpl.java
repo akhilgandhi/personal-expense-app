@@ -3,11 +3,11 @@ package com.akhil.microservices.composite.dashboard.services;
 import com.akhil.microservices.api.composite.dashboard.*;
 import com.akhil.microservices.api.core.account.Account;
 import com.akhil.microservices.api.core.expense.Expense;
+import com.akhil.microservices.composite.dashboard.services.tracing.ObservationUtil;
 import com.akhil.microservices.util.http.ServiceUtil;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextImpl;
@@ -29,31 +29,44 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
     private final SecurityContext nullSecCtx = new SecurityContextImpl();
 
     private final ServiceUtil serviceUtil;
+    private final ObservationUtil observationUtil;
     private final DashboardCompositeIntegration integration;
 
-    public DashboardCompositeServiceImpl(ServiceUtil serviceUtil, DashboardCompositeIntegration integration) {
+    public DashboardCompositeServiceImpl(ServiceUtil serviceUtil, ObservationUtil observationUtil, DashboardCompositeIntegration integration) {
         this.serviceUtil = serviceUtil;
-        this.integration = integration;
+      this.observationUtil = observationUtil;
+      this.integration = integration;
     }
 
     @Override
     public Mono<DashboardAggregate> getDashboardSummary(int accountId,
         int delay, int faultPercent) {
 
+        return observationWithAccountInfo(accountId,
+            () -> getDashboardSummaryInternal(accountId, delay, faultPercent));
+    }
+
+    private Mono<DashboardAggregate> getDashboardSummaryInternal(int accountId, int delay,
+        int faultPercent) {
         LOG.info("Will get aggregated account info for account id={}", accountId);
 
         return Mono.zip(
                 values -> createDashboardAggregate((Account) values[0], (List<Expense>) values[1],
-                        serviceUtil.getServiceAddress()),
+                    serviceUtil.getServiceAddress()),
                 integration.getAccount(accountId, delay, faultPercent),
                 integration.getExpenses(accountId).collectList())
-                .doOnError(ex -> LOG.warn("getAccountSummary failed: {}", ex.toString()))
-                .log(LOG.getName(), Level.FINE);
+            .doOnError(ex -> LOG.warn("getAccountSummary failed: {}", ex.toString()))
+            .log(LOG.getName(), Level.FINE);
     }
 
     @Override
     public Mono<Void> createAccount(DashboardAggregate body) {
 
+        return observationWithAccountInfo(body.getAccount().getAccountId(),
+            () -> createAccountInternal(body));
+    }
+
+    private Mono<Void> createAccountInternal(DashboardAggregate body) {
         try {
             List<Mono> monoList = new ArrayList<>();
 
@@ -82,8 +95,8 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
             LOG.debug("createAccount: composite entities created for accountId: {}", body.getAccount().getAccountId());
 
             return Mono.zip(r -> "", monoList.toArray(new Mono[0]))
-                    .doOnError(ex -> LOG.warn("createDashboardAccount failed: {}", ex.toString()))
-                    .then();
+                .doOnError(ex -> LOG.warn("createDashboardAccount failed: {}", ex.toString()))
+                .then();
         } catch (RuntimeException re) {
             LOG.warn("createDashboardAccount failed", re);
             throw re;
@@ -93,14 +106,19 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
     @Override
     public Mono<Void> createAccount(AccountSummary body) {
 
+        return observationWithAccountInfo(body.getAccountId(), () -> createAccountInternal(body));
+    }
+
+    private Mono<Void> createAccountInternal(AccountSummary body) {
         try {
             LOG.debug("Will create a new account entity for account.id: {}", body.getAccountId());
 
             Account account = new Account(body.getAccountId(), body.getName(), null);
             return integration.createAccount(account)
-                    .doOnSuccess(res -> LOG.debug("createAccount: account created for accountId: {}", body.getAccountId()))
-                    .doOnError(ex -> LOG.warn("createDashboardAccount failed: {}", ex.toString()))
-                    .then();
+                .doOnSuccess(res -> LOG.debug("createAccount: account created for accountId: {}",
+                    body.getAccountId()))
+                .doOnError(ex -> LOG.warn("createDashboardAccount failed: {}", ex.toString()))
+                .then();
         } catch (RuntimeException re) {
             LOG.warn("createDashboardAccount failed", re);
             throw re;
@@ -110,15 +128,19 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
     @Override
     public Mono<Void> deleteAccount(int accountId) {
 
+        return observationWithAccountInfo(accountId, () -> deleteAccountInternal(accountId));
+    }
+
+    private Mono<Void> deleteAccountInternal(int accountId) {
         try {
             LOG.info("Will delete a account aggregate for account.id: {}", accountId);
 
             return Mono.zip(
-                            r -> "",
-                            integration.deleteAccount(accountId),
-                            integration.deleteExpenses(accountId))
-                    .doOnError(ex -> LOG.warn("deleteDashboardAccount failed: {}", ex.toString()))
-                    .log(LOG.getName(), Level.FINE).then();
+                    r -> "",
+                    integration.deleteAccount(accountId),
+                    integration.deleteExpenses(accountId))
+                .doOnError(ex -> LOG.warn("deleteDashboardAccount failed: {}", ex.toString()))
+                .log(LOG.getName(), Level.FINE).then();
 
         } catch (RuntimeException re) {
             LOG.warn("deleteDashboardAccount failed: {}", re.toString());
@@ -168,6 +190,16 @@ public class DashboardCompositeServiceImpl implements DashboardCompositeService 
             LOG.warn("deleteExpense failed", re);
             throw re;
         }
+    }
+
+    private <T> T observationWithAccountInfo(int accountInfo, Supplier<T> supplier) {
+        return observationUtil.observe(
+            "dashboard observation",
+            "account info",
+            "accountId",
+            String.valueOf(accountInfo),
+            supplier
+        );
     }
 
     private DashboardAggregate createDashboardAggregate(Account account, List<Expense> expenses, String serviceAddress) {

@@ -120,6 +120,8 @@ springdoc:
 spring:
   application:
     name: dashboard
+  codec:
+    log-request-details: true
   security:
     oauth2:
       resourceserver:
@@ -188,9 +190,22 @@ resilience4j:
           - org.springframework.web.reactive.function.client.WebClientResponseException$InternalServerError
 
 logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
   level:
     root: INFO
-    com.akhil: DEBUG
+    com:
+      akhil: INFO
+    org:
+      springframework:
+        web:
+          server:
+            adapter:
+              HttpWebHandlerAdapter: INFO
+          reactive:
+            function:
+              client:
+                ExchangeFunctions: TRACE
 
 management:
   endpoint:
@@ -203,6 +218,12 @@ management:
   health:
     circuitbreakers:
       enabled: true
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
+  tracing:
+    sampling:
+      probability: 1.0
 
 ---
 server:

@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalancerExchangeFilterFunction;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
@@ -109,9 +110,12 @@ public class AppConfig {
         return Schedulers.newBoundedElastic(threadPoolSize, taskQueueSize, "publish-pool");
     }
 
+    @Autowired
+    private ReactorLoadBalancerExchangeFilterFunction loadBalancerExchangeFilterFunction;
+
     @Bean
     @LoadBalanced
-    public WebClient.Builder loadBalancedWebClientBuilder() {
-        return WebClient.builder();
+    public WebClient webClient(WebClient.Builder builder) {
+        return builder.filter(loadBalancerExchangeFilterFunction).build();
     }
 }

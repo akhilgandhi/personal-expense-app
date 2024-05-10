@@ -62,15 +62,17 @@ eureka:
       leaseExpirationDurationInSeconds: 5
 
 logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
   level:
     root: INFO
-    com.akhil.microservices: DEBUG
+    com.akhil.microservices: INFO
     org:
       springframework:
         data:
           mongodb:
             core:
-              ReactiveMongoTemplate: DEBUG
+              ReactiveMongoTemplate: INFO
 
 management:
   endpoint:
@@ -80,6 +82,12 @@ management:
     web:
       exposure:
         include: "*"
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
+  tracing:
+    sampling:
+      probability: 1.0
 ---
 server:
   port: 8080

@@ -4,7 +4,6 @@ import com.akhil.microservices.api.core.account.Account;
 import com.akhil.microservices.api.core.account.AccountService;
 import com.akhil.microservices.api.core.expense.Expense;
 import com.akhil.microservices.api.core.expense.ExpenseService;
-import com.akhil.microservices.api.core.expense.PaymentMode;
 import com.akhil.microservices.api.event.Event;
 import com.akhil.microservices.api.exceptions.InvalidInputException;
 import com.akhil.microservices.api.exceptions.NotFoundException;
@@ -34,7 +33,6 @@ import reactor.core.scheduler.Scheduler;
 
 import java.io.IOException;
 import java.net.URI;
-import java.time.LocalDateTime;
 import java.util.logging.Level;
 
 @Component
@@ -61,11 +59,11 @@ public class DashboardCompositeIntegration implements AccountService, ExpenseSer
     @Autowired
     public DashboardCompositeIntegration(
             @Qualifier("publishEventScheduler") Scheduler publishEventScheduler,
-            WebClient.Builder webclient,
+            WebClient webclient,
             ObjectMapper mapper,
             StreamBridge streamBridge, ServiceUtil serviceUtil) {
         this.publishEventScheduler = publishEventScheduler;
-        this.webClient = webclient.build();
+        this.webClient = webclient;
         this.mapper = mapper;
         this.streamBridge = streamBridge;
         this.serviceUtil = serviceUtil;
