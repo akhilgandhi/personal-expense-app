@@ -1,0 +1,105 @@
+server:
+  port: 8082
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: account
+  data:
+    mongodb:
+      host: localhost
+      port: 27017
+      database: account-db
+  cloud:
+    function:
+      definition: messageProcessor
+    stream:
+      default.contentType: application/json
+      bindings:
+        messageProcessor-in-0:
+          destination: accounts
+          group: accountsGroup
+          consumer:
+            maxAttempts: 3
+            backOffInitialInterval: 500
+            backOffMaxInterval: 1000
+            backOffMultiplier: 2.0
+      rabbit:
+        bindings:
+          messageProcessor-in-0:
+            consumer:
+              autoBindDlq: true
+              republishToDlq: true
+      kafka:
+        bindings:
+          messageProcessor-in-0:
+            consumer:
+              enableDlq: true
+
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+  level:
+    root: INFO
+    com.akhil.microservices: INFO
+    org:
+      springframework:
+        data:
+          mongodb:
+            core:
+              ReactiveMongoTemplate: INFO
+
+management:
+  zipkin:
+    tracing:
+      endpoint: http://zipkin:9411/api/v2/spans
+  tracing:
+    sampling:
+      probability: 1.0
+---
+server:
+  port: 8080
+
+spring:
+  config:
+    activate:
+      on-profile: docker
+  data:
+    mongodb:
+      host: mongodb
+
+---
+spring:
+  config:
+    activate:
+      on-profile: streaming_partitioned
+  cloud:
+    stream:
+      bindings:
+        messageProcessor-in-0:
+          consumer:
+            partitioned: true
+            instanceCount: 2
+---
+spring:
+  config:
+    activate:
+      on-profile: streaming_instance_0
+  cloud:
+    stream:
+      bindings:
+        messageProcessor-in-0:
+          consumer:
+            instanceIndex: 0
+---
+spring:
+  config:
+    activate:
+      on-profile: streaming_instance_1
+  cloud:
+    stream:
+      bindings:
+        messageProcessor-in-0:
+          consumer:
+            instanceIndex: 1

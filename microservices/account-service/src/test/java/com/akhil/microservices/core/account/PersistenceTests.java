@@ -13,7 +13,7 @@ import reactor.test.StepVerifier;
 
 import java.util.Objects;
 
-@DataMongoTest
+@DataMongoTest(properties = { "spring.cloud.config.enabled=false" })
 public class PersistenceTests extends MongoDbTestBase {
 
     @Autowired
