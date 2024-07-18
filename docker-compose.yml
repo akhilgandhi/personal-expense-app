@@ -2,6 +2,7 @@ services:
 
   account:
     build: microservices/account-service
+    image: akhilgandhilive/account
     deploy:
       resources:
         limits:
@@ -18,6 +19,7 @@ services:
 
   expense:
     build: microservices/expense-service
+    image: akhilgandhilive/expense
     deploy:
       resources:
         limits:
@@ -34,6 +36,7 @@ services:
 
   dashboard:
     build: microservices/dashboard-service
+    image: akhilgandhilive/dashboard
     deploy:
       resources:
         limits:
@@ -78,19 +81,9 @@ services:
       timeout: 2s
       retries: 60
 
-  eureka:
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
-      - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
-    build: spring-cloud/eureka-server
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-
   gateway:
     build: spring-cloud/gateway
+    image: akhilgandhilive/gateway
     deploy:
       resources:
         limits:
@@ -111,6 +104,7 @@ services:
       - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
       - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
     build: spring-cloud/auth-server
+    image: akhilgandhilive/auth-server
     deploy:
       resources:
         limits:
@@ -123,6 +117,7 @@ services:
 
   config-server:
     build: spring-cloud/config-server
+    image: akhilgandhilive/config-server
     deploy:
       resources:
         limits:
