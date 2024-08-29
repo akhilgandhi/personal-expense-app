@@ -8,8 +8,7 @@ services:
           memory: 512m
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
-      - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
+      - SPRING_CLOUD_CONFIG_URI=${CONFIG_SERVER_URI}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -24,8 +23,7 @@ services:
           memory: 512m
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
-      - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
+      - SPRING_CLOUD_CONFIG_URI=${CONFIG_SERVER_URI}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -40,8 +38,7 @@ services:
           memory: 512m
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
-      - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
+      - SPRING_CLOUD_CONFIG_URI=${CONFIG_SERVER_URI}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -81,8 +78,7 @@ services:
   eureka:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
-      - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
+      - SPRING_CLOUD_CONFIG_URI=${CONFIG_SERVER_URI}
     build: spring-cloud/eureka-server
     deploy:
       resources:
@@ -99,8 +95,7 @@ services:
       - "8443:8443"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
-      - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
+      - SPRING_CLOUD_CONFIG_URI=${CONFIG_SERVER_URI}
     depends_on:
       auth-server:
         condition: service_healthy
@@ -108,8 +103,7 @@ services:
   auth-server:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - CONFIG_SERVER_USR=${CONFIG_SERVER_USR}
-      - CONFIG_SERVER_PWD=${CONFIG_SERVER_PWD}
+      - SPRING_CLOUD_CONFIG_URI=${CONFIG_SERVER_URI}
     build: spring-cloud/auth-server
     deploy:
       resources:
