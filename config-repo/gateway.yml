@@ -14,48 +14,32 @@ spring:
       resourceserver:
         jwt:
           #issuer-uri: https://dev-2nodnh1cai7yfl68.us.auth0.com/
-          issuer-uri: http://${app.auth-server}:9999
+          issuer-uri: http://${app.auth-server}
   cloud:
     gateway:
       routes:
         - id: dashboard
-          uri: lb://dashboard
+          uri: http://dashboard
           predicates:
             - Path=/dashboard/**
         - id: dashboard-swagger-ui
-          uri: lb://dashboard
+          uri: http://dashboard
           predicates:
             - Path=/openapi/**
         - id: oauth2-server
-          uri: lb://auth-server
+          uri: http://auth-server
           predicates:
             - Path=/oauth2/**
         - id: oauth2-login
-          uri: lb://auth-server
+          uri: http://auth-server
           predicates:
             - Path=/login/**
         - id: oauth2-error
-          uri: lb://auth-server
+          uri: http://auth-server
           predicates:
             - Path=/error/**
-        - id: eureka-api
-          uri: http://${app.eureka-server}:8761
-          predicates:
-            - Path=/eureka/api/{segment}
-          filters:
-            - SetPath=/eureka/{segment}
-        - id: eureka-web-start
-          uri: http://${app.eureka-server}:8761
-          predicates:
-            - Path=/eureka/web
-          filters:
-            - SetPath=/
-        - id: eureka-web-other
-          uri: http://${app.eureka-server}:8761
-          predicates:
-            - Path=/eureka/**
         - id: config-server
-          uri: http://${app.config-server}:8888
+          uri: ${spring.cloud.config.uri}
           predicates:
             - Path=/config/**
           filters:
